@@ -6,7 +6,7 @@ import csv
 def read_config():
     import configparser
     config = configparser.ConfigParser()
-    config.read('/home/heizung/zentrale/settings/heizung.ini')
+    config.read('/home/heizung/heizung/zentrale/settings/heizung.ini')
     basehost = config['BASE']['Host']
     baseport = int(config['BASE']['Port'])
     clients = config['BASE']['Clients'].split(";")

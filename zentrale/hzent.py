@@ -6,7 +6,7 @@ import time
 import configparser
 from timer import timer
 import syslog
-import tempsensors
+from libby import tempsensors
 import mysql.connector
 import threading
 from threading import Thread
@@ -162,7 +162,7 @@ class steuerung(threading.Thread):
     def read_config(self):
         try:
             self.config = configparser.ConfigParser()
-            self.config.read('/home/heizung/zentrale/settings/heizung.ini')
+            self.config.read('/home/heizung/heizung/zentrale/settings/heizung.ini')
             self.basehost = self.config['BASE']['Host']
             self.baseport = int(self.config['BASE']['Port'])
             self.hysterese = float(self.config['BASE']['Hysterese'])
