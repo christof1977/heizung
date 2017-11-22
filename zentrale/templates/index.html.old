@@ -1,0 +1,144 @@
+<!doctype html>
+<head>
+<meta name="viewport" content="initial-scale=1, maximum-scale=1">
+<link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+<script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+<script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+</head>
+
+<style>
+h3, h4 {text-align: center;}
+span {font-weight: bold;}
+</style>
+
+<script type=text/javascript>
+	//If one of the buttons is pressed, do the following action
+    $(
+    function() 
+    {
+        $('#leah_sw').change(function() 
+        {
+        $.getJSON('/_operate', {room: "Leah", state: $('#leah_sw').val()});
+        });     
+    }
+    );
+    $(
+    function() 
+    {
+        $('#felix_sw').change(function() 
+        {
+        $.getJSON('/_operate', {room: "Felix", state: $('#felix_sw').val()});
+        });     
+    }
+    );
+    $(
+    function() 
+    {
+        $('#bad_sw').change(function() 
+        {
+        $.getJSON('/_operate', {room: "Bad", state: $('#bad_sw').val()});
+        });     
+    }
+    );
+    $(function() {
+	$("#reltimer").click(function() {
+		$.getJSON('/_reloadtimer');
+	});
+    });
+    
+    
+    $(
+    // periodically (1000ms) do an ajax request to get the button state
+    // modify the span tag to reflect the state (pressed or not)
+    // the state text comes from the JSON string returned by the server
+    function getstate() 
+    {
+        $.getJSON('/_state', function(data)
+            {
+		data_spl = (data.heizungState).split(";");
+		temp = data.raumTemp.split(";");
+		for (var i = 0; i < data_spl.length; i++) {
+			tmp = data_spl[i].split(":");
+			if (i == 0){
+				$("#leah_sw").val(tmp[1]).slider('refresh');}
+			if (i == 1){
+				$("#felix_sw").val(tmp[1]).slider('refresh');}
+			if (i == 2){
+				$("#bad_sw").val(tmp[1]).slider('refresh');}
+			if (i == 3){
+				$("#pumpe_sw").val(tmp[1]).slider('refresh');}
+		}
+                $("#heizungState").text(data.heizungState);
+		//$("#felix_sw").val(data_spl[3]).slider('refresh');
+		//$("#bad_sw").val(data_spl[5]).slider('refresh');
+		$("#gettime").text(data.rettime);
+		$("#LeahTemp").text(temp[0]);
+		$("#FelixTemp").text(temp[1]);
+		$("#BadDGTemp").text(temp[2]);
+		$("#BalkonDGTemp").text(temp[3]);
+                setTimeout(function(){getstate();},1000);
+            });
+    }
+    );
+
+</script>
+<!-- Simple JQuery Mobile page that display the button state on the breadoard -->
+<!-- You can also change the LED state with the slider switch -->
+<!-- The Raspberry Pi uptime is displayed in the footer (Jinja2 expands the template tag) -->
+
+<div data-role="page" data-theme="b">
+  <div data-role="header">
+    <div><h3>Heizung DG</h3></div>
+  </div>
+
+  <div style="margin: 0 auto;" data-role="content">
+    <form style="margin: 0 auto;">
+	    <!--<p>The heizung is <span id="heizungState"></span></p>-->
+	    <p> <span style="margin: 0 auto;" id="gettime"></span></p>
+	    <p> <span style="margin: 0 auto;" id="BalkonDGTemp"></span> °C</p>
+    <br />
+    <table style="margin: 0 auto;">
+	    <tr>
+		    <td><select name="leah_sw" id="leah_sw" data-role="slider" style="float: left;" data-theme="a">
+        		<option value="off">Leah</option>
+        		<option value="on">Leah</option>
+    			</select>		    
+		    </td>
+		    <td><span id ="LeahTemp"></span> °C</td>
+	    </tr>
+	    <tr>
+		    <td><select name="felix_sw" id="felix_sw" data-role="slider" style="float: left;" data-theme="a">
+        		<option value="off">Felix</option>
+        		<option value="on">Felix</option>
+    			</select>		    
+		    </td>
+		    <td><span id ="FelixTemp"></span> °C</td>
+	    </tr>
+  	    <tr>
+		    <td><select name="bad_sw" id="bad_sw" data-role="slider" style="float: left;" data-theme="a">
+        		<option value="off">Bad</option>
+        		<option value="on">Bad</option>
+    			</select>		    
+		    </td>
+		    <td><span id ="BadDGTemp"></span> °C</td>
+	    </tr>
+	    <tr>
+		    <td>
+			    <select disabled name="pumpe_sw" id="pumpe_sw" data-role="slider" style="float: left;" data-theme="a">
+				    <option value="off"></option>
+				    <option value="on"></option>
+			    </select>
+		    </td>
+		    <td>Pumpe</td>
+	    </tr>
+    </table>
+    <div data-role="fieldcontain">
+    		<input type="button" id="reltimer" value="Reload Timer Table" data-inline="true" style="float: left;" data-theme="a"/>
+    </div>
+    </form>
+ </div>
+ <div data-role="footer">
+	 <div><h4><span id="gettime">{{rettime}}</span></h4></div>
+  </div>
+</div>
+
