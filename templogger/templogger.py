@@ -6,7 +6,7 @@ import time
 #import configparser
 #from timer import timer
 import syslog
-from .lib import tempsensors
+from libby import tempsensors
 import mysql.connector
 import threading
 from threading import Thread
