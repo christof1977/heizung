@@ -1,0 +1,107 @@
+<!doctype html>
+
+<head>
+  <meta name="viewport" content="initial-scale=1, maximum-scale=1">
+  <link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+  <script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+  <script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+
+  <style>
+    h3,
+    h4 {
+      text-align: center;
+    }
+    
+    span {
+      font-weight: bold;
+    }
+    
+    div.ui-grid-a .ui-block-a {
+      margin: auto;
+      border: 0px solid green;
+    }
+    
+    div.ui-grid-a .ui-block-b {
+      margin: auto;
+      border: 0px solid red;
+      vertical-align: middle;
+    }
+  </style>
+
+
+
+
+  <script type=text/javascript>
+    function equalHeight(group) {
+      tallest = 0;
+      group.each(function() {
+        thisHeight = $(this).height();
+        if (thisHeight > tallest) {
+          tallest = thisHeight;
+        }
+      });
+      group.height(tallest);
+    }
+    $(document).ready(function() {
+      equalHeight($(".column"));
+    });
+    //If one of the buttons is pressed, do the following action
+
+
+    $(
+      // periodically (1000ms) do an ajax request to get the button state
+      // modify the span tag to reflect the state (pressed or not)
+      // the state text comes from the JSON string returned by the server
+      function getstate() {
+        $.getJSON('/_gettemp', function(data) {
+          //data_spl = (data.heizungState).split(";");
+          //temp = data.raumTemp.split(";");
+          $("#gettime").text(data.rettime);
+          $("#kesselVorlauf").text(data.temps[0]);
+          $("#kesselRuecklauf").text(data.temps[1]);
+          $("#speicherRuecklauf").text(data.temps[2]);
+          $("#speicherVorlauf").text(data.temps[3]);
+          setTimeout(function() {
+            getstate();
+          }, 2500);
+        });
+      }
+    );
+  </script>
+  <!-- Simple JQuery Mobile page that display the button state on the breadoard -->
+  <!-- You can also change the LED state with the slider switch -->
+  <!-- The Raspberry Pi uptime is displayed in the footer (Jinja2 expands the template tag) -->
+
+
+</head>
+
+
+
+
+<div data-role="page" data-theme="b">
+  <div data-role="header">
+    <div>
+      <h3>Heizung</h3></div>
+  </div>
+
+  <div data-role="content">
+    <form>
+      <div class="ui-grid-a">
+        <div align="right" class="ui-block-a">Kesselvorlauf:</div>
+        <div align="left" class="ui-block-b"><span name="kesselVorlauf" id="kesselVorlauf" data-theme="a"></span> °C</div>
+        <div align="right" class="ui-block-a">Kesselrücklauf: </div>
+        <div align="left" class="ui-block-b"><span name="kesselRuecklauf" id="kesselRuecklauf" data-theme="a"></span> °C</div>
+        <div align="right" class="ui-block-a">Speichervorlauf: </div>
+	<div align="left" class="ui-block-b"><span name="speicherVorlauf" id="speicherVorlauf" data-theme="a"></span> °C</div>
+        <div align="right" class="ui-block-a">Speicherrücklauf: </div>
+        <div align="left" class="ui-block-b"><span name="speicherRuecklauf" id="speicherRuecklauf" data-theme="a"></span> °C</div>
+      </div>
+    </form>
+  </div>
+
+  <div data-role="footer">
+    <div>
+      <h4><span id="gettime"></span> --  <span id="BalkonDGTemp"></span> °C</h4></div>
+  </div>
+
+</div>
