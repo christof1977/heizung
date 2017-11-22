@@ -1,0 +1,3 @@
+[submodule "templogger/libby"]
+	path = templogger/libby
+	url = git://github.com/christof1977/libby.git
