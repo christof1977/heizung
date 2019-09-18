@@ -180,6 +180,14 @@ class steuerung(threading.Thread):
                     self.relais.append(tmp1)
             #self.relais1 = [[4,14,15],[17,18],[22]]
             print(self.relais)
+            self.polarity = self.config['BASE']['Polarity']
+            self.unusedRel = self.config['BASE']['UnusedRel'].split(";")
+            if self.polarity == "invers":
+                self.on = 0
+                self.off = 1
+            else:
+                self.on = 1
+                self.off = 0
             self.state = []
             for i in range(len(self.clients)):
                 self.state.append("off")
@@ -197,14 +205,22 @@ class steuerung(threading.Thread):
     def set_hw(self):
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)
+        print(self.unusedRel)
+
+        for i in self.unusedRel:
+            i = int(i)
+            print(i)
+            GPIO.setup(i, GPIO.OUT)
+            GPIO.output(i, self.off)
+            logger("Setting BMC " + str(i) + " as unused -> off")
         for i in self.relais:
             for j in i:
         #for i in range(len(self.rel)):
                 GPIO.setup(j, GPIO.OUT)
-                GPIO.output(j, 0)
+                GPIO.output(j, self.off)
                 logger("Setting BMC " + str(j) + " as output")
         GPIO.setup(self.pumpe, GPIO.OUT)
-        GPIO.output(self.pumpe, 0)
+        GPIO.output(self.pumpe, self.off)
         logger("Setting BMC " + str(self.pumpe) + " as output")
  
         
@@ -256,15 +272,15 @@ class steuerung(threading.Thread):
                 #print(state)
                 #print(any(state))
                 #print(state)
-                if any(state) == True:
+                if any(state) == self.on:
                     #print(self.pumpe)
-                    if GPIO.input(self.pumpe) == 0:
+                    if GPIO.input(self.pumpe) == self.off:
                         logger("Switching pump on")
-                        GPIO.output(self.pumpe, 1)
+                        GPIO.output(self.pumpe, self.on)
                 else:
-                    if GPIO.input(self.pumpe) == 1:
+                    if GPIO.input(self.pumpe) == self.on:
                         logger("Switching pump off")
-                    GPIO.output(self.pumpe, 0)
+                    GPIO.output(self.pumpe, self.off)
                 self.t_stop.wait(60)
                 logger("Pumpenloop: Pumpe= "+ str(GPIO.input(self.pumpe)) + " State= " + str(state))
                 pass
@@ -277,9 +293,9 @@ class steuerung(threading.Thread):
         logger("hw_state setting values " + str(self.state))
         for i in range(len(self.state)):
             if self.state[i] == "on":
-                val = 1
+                val = self.on
             else:
-                val = 0
+                val = self.off
             for j in range(len(self.relais[i])):
                 GPIO.output(self.relais[i][j],val)
  
@@ -378,9 +394,9 @@ class steuerung(threading.Thread):
                 logger("So long sucker!")
                 for i in self.relais:
                     for j in i:
-                        GPIO.output(j, 0)
+                        GPIO.output(j, self.off)
                         logger("Switching BMC " + str(j) + " off")
-                GPIO.output(self.pumpe, 0)
+                GPIO.output(self.pumpe, self.off)
                 logger("Switching BMC " + str(self.pumpe) + " off")
                 #for i in range(len(self.rel)):
                 #    GPIO.output(self.rel[i], 0)
