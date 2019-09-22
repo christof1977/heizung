@@ -187,7 +187,7 @@ class steuerung(threading.Thread):
                     for j in range(len(tmp)):
                         tmp1.append(int(tmp[j]))
                     self.relais.append(tmp1)
-            print(self.relais)
+            logger("Relais List: " + str(self.relais))
             self.polarity = self.config['BASE']['Polarity']
             self.unusedRel = self.config['BASE']['UnusedRel'].split(";")
             if self.polarity == "invers":
@@ -212,12 +212,10 @@ class steuerung(threading.Thread):
     def set_hw(self):
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)
-        print(self.unusedRel)
 
         for i in self.unusedRel:
             if not i == '':
                 i = int(i)
-                print(i)
                 GPIO.setup(i, GPIO.OUT)
                 GPIO.output(i, self.off)
                 logger("Setting BMC " + str(i) + " as unused -> off")
@@ -238,8 +236,8 @@ class steuerung(threading.Thread):
             logger("Starting Logthread as " + threading.currentThread().getName())
             while(not self.t_stop.is_set()):
 
-                print(self.sensor_values)
-                print(self.isTemp)
+                logger("Sensor Values: " + self.sensor_values)
+                logger("isTemp: " + self.isTemp)
                 self.t_stop.wait(58)
                 now = time.strftime('%Y-%m-%d %H:%M:%S')
                 for idx in range(len(self.sensor_ids)):
