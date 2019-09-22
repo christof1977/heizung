@@ -14,8 +14,6 @@ from threading import Thread
 from flask import Flask, render_template, request, jsonify
 #import pins as Pins
 
-settingsfile = 'heizungdg.ini' 
-
 
 logging = True
 
@@ -45,6 +43,7 @@ class steuerung(threading.Thread):
         
         self.mysql_success = False
         self.mysql_start()
+
 
         logger("Starting UDP-Server at " + self.basehost + ":" + str(self.baseport))
         self.e_udp_sock = socket.socket( socket.AF_INET,  socket.SOCK_DGRAM ) 
@@ -165,15 +164,15 @@ class steuerung(threading.Thread):
 
     def read_config(self):
         try:
+            self.basehost = socket.gethostname()
             realpath = os.path.realpath(__file__)
             basepath = os.path.split(realpath)[0]
             setpath = os.path.join(basepath, 'settings')
-            setfile = os.path.join(setpath, settingsfile)
+            setfile = os.path.join(setpath, self.basehost + '.ini')
 
             self.config = configparser.ConfigParser()
             logger("Loading " + setfile)
             self.config.read(setfile)
-            self.basehost = self.config['BASE']['Host']
             self.baseport = int(self.config['BASE']['Port'])
             self.hysterese = float(self.config['BASE']['Hysterese'])
             self.clients = self.config['BASE']['Clients'].split(";")
@@ -188,7 +187,7 @@ class steuerung(threading.Thread):
                     for j in range(len(tmp)):
                         tmp1.append(int(tmp[j]))
                     self.relais.append(tmp1)
-            print(self.relais)
+            logger("Relais List: " + str(self.relais))
             self.polarity = self.config['BASE']['Polarity']
             self.unusedRel = self.config['BASE']['UnusedRel'].split(";")
             if self.polarity == "invers":
@@ -213,12 +212,10 @@ class steuerung(threading.Thread):
     def set_hw(self):
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)
-        print(self.unusedRel)
 
         for i in self.unusedRel:
             if not i == '':
                 i = int(i)
-                print(i)
                 GPIO.setup(i, GPIO.OUT)
                 GPIO.output(i, self.off)
                 logger("Setting BMC " + str(i) + " as unused -> off")
@@ -239,8 +236,8 @@ class steuerung(threading.Thread):
             logger("Starting Logthread as " + threading.currentThread().getName())
             while(not self.t_stop.is_set()):
 
-                print(self.sensor_values)
-                print(self.isTemp)
+                logger("Sensor Values: " + self.sensor_values)
+                logger("isTemp: " + self.isTemp)
                 self.t_stop.wait(58)
                 now = time.strftime('%Y-%m-%d %H:%M:%S')
                 for idx in range(len(self.sensor_ids)):
