@@ -14,8 +14,6 @@ from threading import Thread
 from flask import Flask, render_template, request, jsonify
 #import pins as Pins
 
-settingsfile = 'heizungdg.ini' 
-
 
 logging = True
 
@@ -45,6 +43,7 @@ class steuerung(threading.Thread):
         
         self.mysql_success = False
         self.mysql_start()
+
 
         logger("Starting UDP-Server at " + self.basehost + ":" + str(self.baseport))
         self.e_udp_sock = socket.socket( socket.AF_INET,  socket.SOCK_DGRAM ) 
@@ -165,15 +164,15 @@ class steuerung(threading.Thread):
 
     def read_config(self):
         try:
+            self.basehost = socket.gethostname()
             realpath = os.path.realpath(__file__)
             basepath = os.path.split(realpath)[0]
             setpath = os.path.join(basepath, 'settings')
-            setfile = os.path.join(setpath, settingsfile)
+            setfile = os.path.join(setpath, self.basehost + '.ini')
 
             self.config = configparser.ConfigParser()
             logger("Loading " + setfile)
             self.config.read(setfile)
-            self.basehost = self.config['BASE']['Host']
             self.baseport = int(self.config['BASE']['Port'])
             self.hysterese = float(self.config['BASE']['Hysterese'])
             self.clients = self.config['BASE']['Clients'].split(";")
