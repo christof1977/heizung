@@ -168,7 +168,7 @@ class steuerung(threading.Thread):
             realpath = os.path.realpath(__file__)
             basepath = os.path.split(realpath)[0]
             setpath = os.path.join(basepath, 'settings')
-            setfile = os.path.join(setpath, setttingsfile)
+            setfile = os.path.join(setpath, settingsfile)
 
             self.config = configparser.ConfigParser()
             logger("Loading " + setfile)
