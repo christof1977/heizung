@@ -20,7 +20,7 @@ logging = True
 
 def logger(msg):
     if logging == True:
-        print(msg)
+        print(str(msg))
         syslog.syslog(str(msg))
 
 
@@ -236,8 +236,8 @@ class steuerung(threading.Thread):
             logger("Starting Logthread as " + threading.currentThread().getName())
             while(not self.t_stop.is_set()):
 
-                logger("Sensor Values: " + self.sensor_values)
-                logger("isTemp: " + self.isTemp)
+                logger("Sensor Values: " + str(self.sensor_values))
+                logger("isTemp: " + str(self.isTemp))
                 self.t_stop.wait(58)
                 now = time.strftime('%Y-%m-%d %H:%M:%S')
                 for idx in range(len(self.sensor_ids)):
