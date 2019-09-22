@@ -14,7 +14,7 @@ from threading import Thread
 from flask import Flask, render_template, request, jsonify
 #import pins as Pins
 
-settingsfile = 'heizungeg.ini' 
+settingsfile = 'heizungdg.ini' 
 
 
 logging = True
@@ -216,11 +216,12 @@ class steuerung(threading.Thread):
         print(self.unusedRel)
 
         for i in self.unusedRel:
-            i = int(i)
-            print(i)
-            GPIO.setup(i, GPIO.OUT)
-            GPIO.output(i, self.off)
-            logger("Setting BMC " + str(i) + " as unused -> off")
+            if not i == '':
+                i = int(i)
+                print(i)
+                GPIO.setup(i, GPIO.OUT)
+                GPIO.output(i, self.off)
+                logger("Setting BMC " + str(i) + " as unused -> off")
         for i in self.relais:
             for j in i:
                 GPIO.setup(j, GPIO.OUT)
