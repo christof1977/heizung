@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import socket
+import os
 import RPi.GPIO as GPIO
 import sys
 import time
@@ -12,6 +13,9 @@ import threading
 from threading import Thread
 from flask import Flask, render_template, request, jsonify
 #import pins as Pins
+
+settingsfile = 'heizungdg.ini' 
+
 
 logging = True
 
@@ -161,8 +165,14 @@ class steuerung(threading.Thread):
 
     def read_config(self):
         try:
+            realpath = os.path.realpath(__file__)
+            basepath = os.path.split(realpath)[0]
+            setpath = os.path.join(basepath, 'settings')
+            setfile = os.path.join(setpath, settingsfile)
+
             self.config = configparser.ConfigParser()
-            self.config.read('/home/heizung/heizung/zentrale/settings/heizung.ini')
+            logger("Loading " + setfile)
+            self.config.read(setfile)
             self.basehost = self.config['BASE']['Host']
             self.baseport = int(self.config['BASE']['Port'])
             self.hysterese = float(self.config['BASE']['Hysterese'])
@@ -178,14 +188,20 @@ class steuerung(threading.Thread):
                     for j in range(len(tmp)):
                         tmp1.append(int(tmp[j]))
                     self.relais.append(tmp1)
-            #self.relais1 = [[4,14,15],[17,18],[22]]
             print(self.relais)
+            self.polarity = self.config['BASE']['Polarity']
+            self.unusedRel = self.config['BASE']['UnusedRel'].split(";")
+            if self.polarity == "invers":
+                self.on = 0
+                self.off = 1
+            else:
+                self.on = 1
+                self.off = 0
             self.state = []
             for i in range(len(self.clients)):
                 self.state.append("off")
-            self.path = self.config['BASE']['Path']
-            self.logpath = self.path+"/log/"
-            self.timerpath = self.path+"/settings/"
+            self.logpath = os.path.join(basepath, 'log')
+            self.timerpath = setpath
             self.mysqluser = self.config['BASE']['Mysqluser']
             self.mysqlpass = self.config['BASE']['Mysqlpass']
             self.mysqlserv = self.config['BASE']['Mysqlserv']
@@ -197,14 +213,22 @@ class steuerung(threading.Thread):
     def set_hw(self):
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)
+        print(self.unusedRel)
+
+        for i in self.unusedRel:
+            if not i == '':
+                i = int(i)
+                print(i)
+                GPIO.setup(i, GPIO.OUT)
+                GPIO.output(i, self.off)
+                logger("Setting BMC " + str(i) + " as unused -> off")
         for i in self.relais:
             for j in i:
-        #for i in range(len(self.rel)):
                 GPIO.setup(j, GPIO.OUT)
-                GPIO.output(j, 0)
+                GPIO.output(j, self.off)
                 logger("Setting BMC " + str(j) + " as output")
         GPIO.setup(self.pumpe, GPIO.OUT)
-        GPIO.output(self.pumpe, 0)
+        GPIO.output(self.pumpe, self.off)
         logger("Setting BMC " + str(self.pumpe) + " as output")
  
         
@@ -256,15 +280,15 @@ class steuerung(threading.Thread):
                 #print(state)
                 #print(any(state))
                 #print(state)
-                if any(state) == True:
+                if any(state) == self.on:
                     #print(self.pumpe)
-                    if GPIO.input(self.pumpe) == 0:
+                    if GPIO.input(self.pumpe) == self.off:
                         logger("Switching pump on")
-                        GPIO.output(self.pumpe, 1)
+                        GPIO.output(self.pumpe, self.on)
                 else:
-                    if GPIO.input(self.pumpe) == 1:
+                    if GPIO.input(self.pumpe) == self.on:
                         logger("Switching pump off")
-                    GPIO.output(self.pumpe, 0)
+                    GPIO.output(self.pumpe, self.off)
                 self.t_stop.wait(60)
                 logger("Pumpenloop: Pumpe= "+ str(GPIO.input(self.pumpe)) + " State= " + str(state))
                 pass
@@ -277,9 +301,9 @@ class steuerung(threading.Thread):
         logger("hw_state setting values " + str(self.state))
         for i in range(len(self.state)):
             if self.state[i] == "on":
-                val = 1
+                val = self.on
             else:
-                val = 0
+                val = self.off
             for j in range(len(self.relais[i])):
                 GPIO.output(self.relais[i][j],val)
  
@@ -378,9 +402,9 @@ class steuerung(threading.Thread):
                 logger("So long sucker!")
                 for i in self.relais:
                     for j in i:
-                        GPIO.output(j, 0)
+                        GPIO.output(j, self.off)
                         logger("Switching BMC " + str(j) + " off")
-                GPIO.output(self.pumpe, 0)
+                GPIO.output(self.pumpe, self.off)
                 logger("Switching BMC " + str(self.pumpe) + " off")
                 #for i in range(len(self.rel)):
                 #    GPIO.output(self.rel[i], 0)
