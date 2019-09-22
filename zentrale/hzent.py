@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import socket
+import os
 import RPi.GPIO as GPIO
 import sys
 import time
@@ -12,6 +13,9 @@ import threading
 from threading import Thread
 from flask import Flask, render_template, request, jsonify
 #import pins as Pins
+
+settingsfile = 'heizungeg.ini' 
+
 
 logging = True
 
@@ -161,8 +165,14 @@ class steuerung(threading.Thread):
 
     def read_config(self):
         try:
+            realpath = os.path.realpath(__file__)
+            basepath = os.path.split(realpath)[0]
+            setpath = os.path.join(basepath, 'settings')
+            setfile = os.path.join(setpath, setttingsfile)
+
             self.config = configparser.ConfigParser()
-            self.config.read('/home/heizung/heizung/zentrale/settings/heizung.ini')
+            logger("Loading " + setfile)
+            self.config.read(setfile)
             self.basehost = self.config['BASE']['Host']
             self.baseport = int(self.config['BASE']['Port'])
             self.hysterese = float(self.config['BASE']['Hysterese'])
@@ -178,7 +188,6 @@ class steuerung(threading.Thread):
                     for j in range(len(tmp)):
                         tmp1.append(int(tmp[j]))
                     self.relais.append(tmp1)
-            #self.relais1 = [[4,14,15],[17,18],[22]]
             print(self.relais)
             self.polarity = self.config['BASE']['Polarity']
             self.unusedRel = self.config['BASE']['UnusedRel'].split(";")
@@ -191,9 +200,8 @@ class steuerung(threading.Thread):
             self.state = []
             for i in range(len(self.clients)):
                 self.state.append("off")
-            self.path = self.config['BASE']['Path']
-            self.logpath = self.path+"/log/"
-            self.timerpath = self.path+"/settings/"
+            self.logpath = os.path.join(basepath, 'log')
+            self.timerpath = setpath
             self.mysqluser = self.config['BASE']['Mysqluser']
             self.mysqlpass = self.config['BASE']['Mysqlpass']
             self.mysqlserv = self.config['BASE']['Mysqlserv']
@@ -215,7 +223,6 @@ class steuerung(threading.Thread):
             logger("Setting BMC " + str(i) + " as unused -> off")
         for i in self.relais:
             for j in i:
-        #for i in range(len(self.rel)):
                 GPIO.setup(j, GPIO.OUT)
                 GPIO.output(j, self.off)
                 logger("Setting BMC " + str(j) + " as output")
