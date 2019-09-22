@@ -2,16 +2,14 @@
 
 import time
 import csv
+import os
 
 def read_config():
     import configparser
     config = configparser.ConfigParser()
     config.read('/home/heizung/heizung/zentrale/settings/heizung.ini')
-    basehost = config['BASE']['Host']
-    baseport = int(config['BASE']['Port'])
     clients = config['BASE']['Clients'].split(";")
     path = config['BASE']['Path']
-    logpath = path+"/log/"
     timerpath = path+"/settings/"
     return clients, timerpath
 
@@ -30,7 +28,7 @@ class timer(object):
         self.states = [[] for i in range(len(self.clients))]
         cl_idx = 0
         for client in self.clients:
-            filename = self.path + client + ".csv"
+            filename = os.path.join(self.path, client + ".csv")
             try:
                 with open(filename, newline='') as csvfile:
                     reader = csv.reader(csvfile, delimiter=',')
