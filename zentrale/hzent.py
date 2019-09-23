@@ -75,6 +75,7 @@ class steuerung(threading.Thread):
         logger("Starting UDP-Server at " + self.basehost + ":" + str(udp_port),logging)
         self.udpSock = socket.socket( socket.AF_INET,  socket.SOCK_DGRAM )
         self.udpSock.bind( (self.basehost,udp_port) )
+        #self.udpSock.bind( ('fbhdg.local',udp_port) )
 
         self.t_stop = threading.Event()
         udpT = threading.Thread(target=self._udpServer)
@@ -83,12 +84,19 @@ class steuerung(threading.Thread):
 
     def _udpServer(self):
         while(not self.t_stop.is_set()):
+            logger("Server laaft",logging)
             try:
                 data, addr = self.udpSock.recvfrom( 1024 )# Puffer-Groesse ist 1024 Bytes.
+                logger("Kimm ja scho", logging)
                 ret = self.parseCmd(data) # Abfrage der Fernbedienung (UDP-Server), der Rest passiert per Interrupt/Event
                 self.udpSock.sendto(str(ret).encode('utf-8'), addr)
             except Exception as e:
                 logger("Uiui, beim UDP senden/empfangen hat's kracht!" + str(e),logging)
+
+    def parseCmd(self, data):
+        data = data.decode()
+        logger("Horch: " + data, logging)
+        return "Hui"
 
 
     def threadwatcher(self):
