@@ -12,22 +12,24 @@ import mysql.connector
 import threading
 from threading import Thread
 from flask import Flask, render_template, request, jsonify
+from libby.logger import logger
 #import pins as Pins
 
 
 logging = True
+udp_port = 5005
 
 
-def logger(msg):
-    if logging == True:
-        print(str(msg))
-        syslog.syslog(str(msg))
+#def logger(msg):
+#    if logging == True:
+#        print(str(msg))
+#        syslog.syslog(str(msg))
 
 
 class steuerung(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
-        logger("Starting Steuerungthread as " + threading.currentThread().getName())
+        logger("Starting Steuerungthread as " + threading.currentThread().getName(),logging)
         #super(steuerung, self).__init__()
         #print(threading.enumerate())
         #print("Initthread:")
@@ -45,8 +47,8 @@ class steuerung(threading.Thread):
         self.mysql_start()
 
 
-        logger("Starting UDP-Server at " + self.basehost + ":" + str(self.baseport))
-        self.e_udp_sock = socket.socket( socket.AF_INET,  socket.SOCK_DGRAM ) 
+        logger("Starting UDP-Server at " + self.basehost + ":" + str(self.baseport),logging)
+        self.e_udp_sock = socket.socket( socket.AF_INET,  socket.SOCK_DGRAM )
         self.e_udp_sock.bind( (self.basehost,self.baseport) ) 
         
         #self.rel = [18, 27, 22, 23, 24, 10, 9, 25]
@@ -67,21 +69,40 @@ class steuerung(threading.Thread):
         threading.Thread(target=self.timer_operation).start()
         #threading.Thread(target=self.threadwatcher).start()
         #print(threading.enumerate())
+        self.udpServer()
 
+    def udpServer(self):
+        logger("Starting UDP-Server at " + self.basehost + ":" + str(udp_port),logging)
+        self.udpSock = socket.socket( socket.AF_INET,  socket.SOCK_DGRAM )
+        self.udpSock.bind( (self.basehost,udp_port) )
+
+        self.t_stop = threading.Event()
+        udpT = threading.Thread(target=self._udpServer)
+        udpT.setDaemon(True)
+        udpT.start()
+
+    def _udpServer(self):
+        while(not self.t_stop.is_set()):
+            try:
+                data, addr = self.udpSock.recvfrom( 1024 )# Puffer-Groesse ist 1024 Bytes.
+                ret = self.parseCmd(data) # Abfrage der Fernbedienung (UDP-Server), der Rest passiert per Interrupt/Event
+                self.udpSock.sendto(str(ret).encode('utf-8'), addr)
+            except Exception as e:
+                logger("Uiui, beim UDP senden/empfangen hat's kracht!" + str(e),logging)
 
 
     def threadwatcher(self):
         try:
-            logger("Starting Threadwatcherthread as " + threading.currentThread().getName())
+            logger("Starting Threadwatcherthread as " + threading.currentThread().getName(),logging)
             while(not self.t_stop.is_set()):
                 enum = threading.enumerate()
                 for i in range(len(enum)):
-                    logger("[Threadwatcher]: " + str(enum[i]))
+                    logger("[Threadwatcher]: " + str(enum[i]),logging)
                 self.t_stop.wait(10)
             if self.t_stop.is_set():
-                logger("Ausgewatcht")
+                logger("Ausgewatcht",logging)
         except Exception as e:
-            logger(e)
+            logger(e,logging)
 
     def mysql_start(self):
         self.mysql_success = False
@@ -89,11 +110,11 @@ class steuerung(threading.Thread):
             self.cnx = mysql.connector.connect(user=self.mysqluser, password=self.mysqlpass,host=self.mysqlserv,database=self.mysqldb)
             self.cursor = self.cnx.cursor()
             self.mysql_success = True
-            logger("Database connection established")
+            logger("Database connection established",logging)
         except Exception as e:
             try:
                 self.mysql_success = False
-                logger("Database connection error")
+                logger("Database connection error", logging)
                 self.cnx.disconnect()
             except Exception as e:
                 pass
@@ -106,7 +127,7 @@ class steuerung(threading.Thread):
 
     def mysql_write(self, now, parameter, value):
         if self.mysql_success == True:
-            #logger("Writing to DB")
+            #logger("Writing to DB",logging)
             add = ("INSERT INTO messwert " 
                     "(datetime, parameter, value) "
                     "VALUES (%s, %s, %s)")
@@ -118,7 +139,7 @@ class steuerung(threading.Thread):
                 self.cnx.commit()
                 return mess_id
             except Exception as e:
-                logger("Fehler beim Schreiben in die Datenbank")
+                logger("Fehler beim Schreiben in die Datenbank",logging)
                 self.mysql_start()
         else:
             self.mysql_start()
@@ -130,7 +151,7 @@ class steuerung(threading.Thread):
 
     def timer_operation(self):
         #try:
-            logger("Starting Timeroperationthread as " + threading.currentThread().getName())
+            logger("Starting Timeroperationthread as " + threading.currentThread().getName(),logging)
             while(not self.t_stop.is_set()):
                 output = self.Timer.operate()
                 for i in range(len(output)):
@@ -150,15 +171,15 @@ class steuerung(threading.Thread):
                         self.state[i] = "on"
                     elif float(output[i][1]) + self.hysterese/2 <= float(self.isTemp[i]):  # mit Hysterese
                         self.state[i] = "off"
-                logger("Timerloop: "+ str(self.state))
+                logger("Timerloop: "+ str(self.state),logging)
                 self.hw_state()
 
 
                 self.t_stop.wait(60)
             if self.t_stop.is_set():
-                logger("Ausgetimed!")
+                logger("Ausgetimed!",logging)
         #except Exception as e:
-        #    logger(e)
+        #    logger(e,logging)
 
 
 
@@ -171,7 +192,7 @@ class steuerung(threading.Thread):
             setfile = os.path.join(setpath, self.basehost + '.ini')
 
             self.config = configparser.ConfigParser()
-            logger("Loading " + setfile)
+            logger("Loading " + setfile, logging)
             self.config.read(setfile)
             self.baseport = int(self.config['BASE']['Port'])
             self.hysterese = float(self.config['BASE']['Hysterese'])
@@ -187,7 +208,7 @@ class steuerung(threading.Thread):
                     for j in range(len(tmp)):
                         tmp1.append(int(tmp[j]))
                     self.relais.append(tmp1)
-            logger("Relais List: " + str(self.relais))
+            logger("Relais List: " + str(self.relais), logging)
             self.polarity = self.config['BASE']['Polarity']
             self.unusedRel = self.config['BASE']['UnusedRel'].split(";")
             if self.polarity == "invers":
@@ -207,7 +228,7 @@ class steuerung(threading.Thread):
             self.mysqldb = self.config['BASE']['Mysqldb']
 
         except:
-            logger("Configuration error")
+            logger("Configuration error", logging)
 
     def set_hw(self):
         GPIO.setwarnings(False)
@@ -218,26 +239,26 @@ class steuerung(threading.Thread):
                 i = int(i)
                 GPIO.setup(i, GPIO.OUT)
                 GPIO.output(i, self.off)
-                logger("Setting BMC " + str(i) + " as unused -> off")
+                logger("Setting BMC " + str(i) + " as unused -> off", logging)
         for i in self.relais:
             for j in i:
                 GPIO.setup(j, GPIO.OUT)
                 GPIO.output(j, self.off)
-                logger("Setting BMC " + str(j) + " as output")
+                logger("Setting BMC " + str(j) + " as output", logging)
         GPIO.setup(self.pumpe, GPIO.OUT)
         GPIO.output(self.pumpe, self.off)
-        logger("Setting BMC " + str(self.pumpe) + " as output")
+        logger("Setting BMC " + str(self.pumpe) + " as output", logging)
  
         
         
 
     def log_state(self):
         try:
-            logger("Starting Logthread as " + threading.currentThread().getName())
+            logger("Starting Logthread as " + threading.currentThread().getName(), logging)
             while(not self.t_stop.is_set()):
 
-                logger("Sensor Values: " + str(self.sensor_values))
-                logger("isTemp: " + str(self.isTemp))
+                logger("Sensor Values: " + str(self.sensor_values), logging)
+                logger("isTemp: " + str(self.isTemp), logging)
                 self.t_stop.wait(58)
                 now = time.strftime('%Y-%m-%d %H:%M:%S')
                 for idx in range(len(self.sensor_ids)):
@@ -245,7 +266,7 @@ class steuerung(threading.Thread):
                         try:
                             self.sensor_values[idx] = self.w1.getValue(self.sensor_ids[idx])
                         except:
-                            logger("Reading w1 sensor failed")
+                            logger("Reading w1 sensor failed", logging)
                 for i in range(len(self.sensors)):
                     self.mysql_write(now, self.sensors[i], float(self.sensor_values[i]))
                 for i in range(len(self.clients)):
@@ -260,13 +281,13 @@ class steuerung(threading.Thread):
                     #self.mysql_write(now, "ntVorlaufDG", self.w1.getValue(self.w1_slaves[1]))
                             #self.mysql_write(now, self.sensors[idx], self.w1.getValue(self.sensor_ids[idx]))
             if self.t_stop.is_set():
-                logger("Ausgeloggt!")
+                logger("Ausgeloggt!", logging)
         except Exception as e:
-            logger(e)
+            logger(e, logging)
 
     def set_pumpe(self):
         try:
-            logger("Starting Pumpenthread as " + threading.currentThread().getName())
+            logger("Starting Pumpenthread as " + threading.currentThread().getName(), logging)
             while(not self.t_stop.is_set()):
                 state = []
                 for i in range(len(self.relais)):
@@ -280,22 +301,22 @@ class steuerung(threading.Thread):
                 if any(state) == self.on:
                     #print(self.pumpe)
                     if GPIO.input(self.pumpe) == self.off:
-                        logger("Switching pump on")
+                        logger("Switching pump on", logging)
                         GPIO.output(self.pumpe, self.on)
                 else:
                     if GPIO.input(self.pumpe) == self.on:
-                        logger("Switching pump off")
+                        logger("Switching pump off", logging)
                     GPIO.output(self.pumpe, self.off)
                 self.t_stop.wait(60)
-                logger("Pumpenloop: Pumpe= "+ str(GPIO.input(self.pumpe)) + " State= " + str(state))
+                logger("Pumpenloop: Pumpe= "+ str(GPIO.input(self.pumpe)) + " State= " + str(state), logging)
                 pass
             if self.t_stop.is_set():
-                logger("Ausgepumpt")
+                logger("Ausgepumpt", logging)
         except Exception as e:
-            logger(e)
+            logger(e, logging)
 
     def hw_state(self):
-        logger("hw_state setting values " + str(self.state))
+        logger("hw_state setting values " + str(self.state), logging)
         for i in range(len(self.state)):
             if self.state[i] == "on":
                 val = self.on
@@ -328,16 +349,16 @@ class steuerung(threading.Thread):
     def set_state(self, room, state):
         try:
             room_idx = self.clients.index(room)
-            logger("Setting room "+room+" "+state)
+            logger("Setting room "+room+" "+state, logging)
             self.state[room_idx] = state
             self.hw_state()
         except:
-            logger("Error: No such room!")
+            logger("Error: No such room!", logging)
             pass
 
     def stop(self):
         self.t_stop.set()
-        logger("Steuerung: So long sucker!")
+        logger("Steuerung: So long sucker!", logging)
         #print(threading.enumerate())
         exit()
 
@@ -352,7 +373,7 @@ class steuerung(threading.Thread):
                 msg = data.decode('utf-8')
                 msg_spl = msg.split(",")
                 if (msg_spl[0] in self.sensors) or (msg_spl[0] in self.clients):
-                    logger(msg_spl[0]+": Soll-Temp: "+msg_spl[1]+" °C, Ist-Temp: "+msg_spl[2]+ "°C")
+                    logger(msg_spl[0]+": Soll-Temp: "+msg_spl[1]+" °C, Ist-Temp: "+msg_spl[2]+ "°C", logging)
                     try:
                         idx = self.clients.index(msg_spl[0])
                         self.isTemp[idx] = msg_spl[2]
@@ -396,13 +417,13 @@ class steuerung(threading.Thread):
                 #        else:
                 #            GPIO.output(self.relais[i][j], 1)
             except KeyboardInterrupt: # CTRL+C exiti
-                logger("So long sucker!")
+                logger("So long sucker!", logging)
                 for i in self.relais:
                     for j in i:
                         GPIO.output(j, self.off)
-                        logger("Switching BMC " + str(j) + " off")
+                        logger("Switching BMC " + str(j) + " off", logging)
                 GPIO.output(self.pumpe, self.off)
-                logger("Switching BMC " + str(self.pumpe) + " off")
+                logger("Switching BMC " + str(self.pumpe) + " off", logging)
                 #for i in range(len(self.rel)):
                 #    GPIO.output(self.rel[i], 0)
                 #    time.sleep(self.delay)
@@ -460,7 +481,7 @@ def shutdown():
 
 @app.route('/_reloadtimer')
 def reload_timer():
-    logger("Reload Timer")
+    logger("Reload Timer", logging)
     steuerung.timer_read()
     return "Timer reloaded"
 
@@ -477,7 +498,7 @@ if __name__ == "__main__":
     steuerung.start()
     app.run(host='0.0.0.0', port=8080, debug=False, use_reloader=False)
     time.sleep(2)
-    logger("Geschlafen")
+    logger("Geschlafen", logging)
     #print(threading.enumerate())
     steuerung.stop()
     #print(threading.enumerate())
