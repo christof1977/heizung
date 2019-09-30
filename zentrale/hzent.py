@@ -5,6 +5,7 @@ import RPi.GPIO as GPIO
 import sys
 import time
 import configparser
+import json
 from timer import timer
 import syslog
 from libby import tempsensors
@@ -83,8 +84,8 @@ class steuerung(threading.Thread):
         udpT.start()
 
     def _udpServer(self):
+        logger("Server laaft",logging)
         while(not self.t_stop.is_set()):
-            logger("Server laaft",logging)
             try:
                 data, addr = self.udpSock.recvfrom( 1024 )# Puffer-Groesse ist 1024 Bytes.
                 logger("Kimm ja scho", logging)
@@ -95,8 +96,22 @@ class steuerung(threading.Thread):
 
     def parseCmd(self, data):
         data = data.decode()
-        logger("Horch: " + data, logging)
-        return "Hui"
+        try:
+            jcmd = json.loads(data)
+        except:
+            logger("Das ist mal kein JSON, pff!", logging)
+            ret = json.dumps({"Antwort": "Kaa JSON Dings!"})
+        if(jcmd['Aktion'] == "Zustand"):
+            ret = self.get_state()
+        else:
+             ret = json.dumps({"Antwort":"Fehler","Wert":"Kein gültiges Kommando"})
+
+        return(ret)
+
+    def zustand(self):
+        tmp = self.get_state()
+        zustand = json.dumps({tmp})
+        return(zustand)
 
 
     def threadwatcher(self):
@@ -336,15 +351,25 @@ class steuerung(threading.Thread):
  
 
     def get_state(self):
-        state = ""
+        state = {}
         for i in range(len(self.clients)):
-            state = state + " " + self.clients[i] + ":" + self.state[i] + ";"
+            state[self.clients[i]] = self.state[i]
         tmp = GPIO.input(self.pumpe)
         if tmp == 1:
             tmp = "on"
         else:
             tmp = "off"
-        state = state + " Pumpe:" + tmp
+        state["Pumpe"] = tmp
+        #state = ""
+        #for i in range(len(self.clients)):
+        #    state = state + " " + self.clients[i] + ":" + self.state[i] + ";"
+        #tmp = GPIO.input(self.pumpe)
+        #if tmp == 1:
+        #    tmp = "on"
+        #else:
+        #    tmp = "off"
+        #state = state + " Pumpe:" + tmp
+
         return state
 
     def get_temp(self):
@@ -452,7 +477,7 @@ steuerung = steuerung()
 # return index page when IP address of RPi is typed in the browser
 @app.route("/")
 def Index():
-    return render_template("index.html")
+    return render_template(socket.gethostname() + ".html")
 
 @app.route("/timer")
 def Timer():
@@ -472,7 +497,8 @@ def operate():
 
 @app.route("/_state")
 def state():
-    state=steuerung.get_state()
+    state=json.dumps(steuerung.get_state())
+    print(state)
     temp=steuerung.get_temp()
     now=time.strftime("%H:%M:%S")
     return jsonify(heizungState=state,raumTemp=temp,rettime=now)
