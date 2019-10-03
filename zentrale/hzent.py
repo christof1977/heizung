@@ -63,7 +63,7 @@ class steuerung(threading.Thread):
         #print(self.isTemp)
         self.w1 = tempsensors.onewires()
         self.w1_slaves = self.w1.enumerate()
-        self.Timer = timer(self.clients, self.timerpath)
+        self.Timer = timer("/home/heizung/heizung/zentrale/settings/timer.json", self.clients, self.timerpath)
         self.timer_read()
         threading.Thread(target=self.set_pumpe).start()
         threading.Thread(target=self.log_state).start()
@@ -151,7 +151,8 @@ class steuerung(threading.Thread):
         """ function to read the timer settings per room
 
         """
-        return()
+        ret = json.dumps(self.Timer.get_timer_list(room))
+        return(ret)
 
     def set_timer(self, room):
         return()
@@ -374,17 +375,14 @@ class steuerung(threading.Thread):
         try:
             logger("Starting Pumpenthread as " + threading.currentThread().getName(), logging)
             while(not self.t_stop.is_set()):
+                # Checking, wether on of the room outputs is switches on -> if yes, switch pump on
+                # First, Outputs are checked and their values are collected in state[]
                 state = []
                 for i in range(len(self.relais)):
                         for j in range(len(self.relais[i])):
-                            #print(self.relais[i][j]
-                            #print(self.relais[i][j])
                             state.append(GPIO.input(self.relais[i][j]))
-                #print(state)
-                #print(any(state))
-                #print(state)
-                if any(state) == self.on:
-                    #print(self.pumpe)
+                # Check, if any of the outputs is switched to on, if yes, activate pump
+                if any(state) == self.on: 
                     if GPIO.input(self.pumpe) == self.off:
                         logger("Switching pump on", logging)
                         GPIO.output(self.pumpe, self.on)
