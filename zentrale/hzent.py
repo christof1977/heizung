@@ -98,19 +98,75 @@ class steuerung(threading.Thread):
         data = data.decode()
         try:
             jcmd = json.loads(data)
+            print(jcmd['command'])
         except:
             logger("Das ist mal kein JSON, pff!", logging)
-            ret = json.dumps({"Antwort": "Kaa JSON Dings!"})
-        if(jcmd['Aktion'] == "Zustand"):
-            ret = self.zustand()
-            logger(ret,logging)
+            ret = json.dumps({"answer": "Kaa JSON Dings!"})
+            return(ret)
+        if(jcmd['command'] == "getStatus"):
+            ret = self.get_status()
+        elif(jcmd['command'] == "getAlive"):
+            ret = self.get_alive()
+        elif(jcmd['command'] == "getRooms"):
+            ret = self.get_rooms()
+        elif(jcmd['command'] == "getTimer"):
+            ret = self.get_timer(jcmd['room'])
+        elif(jcmd['command'] == "setTimer"):
+            ret = self.set_timer(jcmd['room'])
+        elif(jcmd['command'] == "getRoomStatus"):
+            ret = self.get_room_status(jcmd['room'])
+        elif(jcmd['command'] == "setRoomStatus"):
+            ret = self.set_room_status(jcmd['room'])
         else:
-             ret = json.dumps({"Antwort":"Fehler","Wert":"Kein gültiges Kommando"})
-
+             ret = json.dumps({"answer":"Fehler","Wert":"Kein gültiges Kommando"})
+        logger(ret,logging)
         return(ret)
 
-    def zustand(self):
+    def get_rooms(self):
+        """ function to return available rooms
 
+        """
+        ret = json.dumps({"answer":"getRooms","available_rooms":self.clients})
+        return(ret)
+
+    def get_room_status(self, room):
+        """ function to get status status of a single room
+
+        """
+        status = self.get_state()
+        try:
+            print(status[room])
+            ret = json.dumps({"answer":"getRoomStatus","room":room,"status":status[room],"setTemp":12,"isTemp":13})
+        except:
+            ret = json.dumps({"answer":"room does not exist"})
+        return(ret)
+
+    def set_room_status(self, room):
+        """ function to set status status of a single room
+
+        """
+        return()
+
+    def get_timer(self, room):
+        """ function to read the timer settings per room
+
+        """
+        return()
+
+    def set_timer(self, room):
+        return()
+
+    def get_alive(self):
+        """ function to see, if we are alive
+
+        """
+        return(json.dumps({"answer":"Freilich"}))
+
+
+    def get_status(self):
+        """ function to determine status of system
+
+        """
         logger("Zustand?",logging)
         state = self.get_state()
         sollTemp = {"WZ":18, "AZ":18.1, "SZ":17.5, "BadEG":23, "K":19}
