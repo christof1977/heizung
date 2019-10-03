@@ -131,8 +131,8 @@ class timer(object):
         for j in range(len(timer_list[day][0])):
             datestring = str(now.year) + "-" + str(now.month) + "-" + str(now.day) + " " + timer_list[day][0][j]
             d=datetime.datetime.strptime(datestring,'%Y-%m-%d %H:%M')
-            if now < d:
-                temp = timer_list[day][1][j-1]
+            if now > d:
+                temp = timer_list[day][1][j]
         if(temp is None):
             temp = timer_list[day][1][-1]
         return(temp)
