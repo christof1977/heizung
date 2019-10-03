@@ -21,12 +21,6 @@ logging = True
 udp_port = 5005
 
 
-#def logger(msg):
-#    if logging == True:
-#        print(str(msg))
-#        syslog.syslog(str(msg))
-
-
 class steuerung(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
@@ -52,15 +46,13 @@ class steuerung(threading.Thread):
         self.e_udp_sock = socket.socket( socket.AF_INET,  socket.SOCK_DGRAM )
         self.e_udp_sock.bind( (self.basehost,self.baseport) ) 
         
-        #self.rel = [18, 27, 22, 23, 24, 10, 9, 25]
         self.set_hw()
         
-        self.setTemp = [0]
-        self.isTemp = [18]
-        for i in range(len(self.clients)-1):
-            self.setTemp.append(0)
-            self.isTemp.append(18)
-        #print(self.isTemp)
+        self.setTemp = {}
+        self.isTemp = {}
+        for client in self.clients:
+            self.setTemp[client] = 0
+            self.isTemp[client] = 18
         self.w1 = tempsensors.onewires()
         self.w1_slaves = self.w1.enumerate()
         self.Timer = timer("/home/heizung/heizung/zentrale/settings/timer.json", self.clients, self.timerpath)
@@ -136,7 +128,7 @@ class steuerung(threading.Thread):
         status = self.get_state()
         try:
             print(status[room])
-            ret = json.dumps({"answer":"getRoomStatus","room":room,"status":status[room],"setTemp":12,"isTemp":13})
+            ret = json.dumps({"answer":"getRoomStatus","room":room,"status":status[room],"setTemp":self.Timer.get_recent_temp(room),"isTemp":self.isTemp[room]})
         except:
             ret = json.dumps({"answer":"room does not exist"})
         return(ret)
@@ -204,19 +196,15 @@ class steuerung(threading.Thread):
             except Exception as e:
                 pass
 
-
-
     def mysql_close(self):
         if self.mysql_success == True:
             self.cursor.close()
 
     def mysql_write(self, now, parameter, value):
         if self.mysql_success == True:
-            #logger("Writing to DB",logging)
             add = ("INSERT INTO messwert " 
                     "(datetime, parameter, value) "
                     "VALUES (%s, %s, %s)")
-            #data = (time.strftime('%Y-%m-%d %H:%M:%S'), parameter, value)
             data = (now, parameter, value)
             try:
                 self.cursor.execute(add, data)
@@ -229,8 +217,6 @@ class steuerung(threading.Thread):
         else:
             self.mysql_start()
 
-
-
     def timer_read(self):
         self.Timer.read()
 
@@ -238,38 +224,23 @@ class steuerung(threading.Thread):
         #try:
             logger("Starting Timeroperationthread as " + threading.currentThread().getName(),logging)
             while(not self.t_stop.is_set()):
-                output = self.Timer.operate()
-                for i in range(len(output)):
-                    #print(output[i][0])
-                    #print(output[i][1])
-                    #print(output[i])
-
-                    # original ohne Hysterese
-                    #if float(output[i][1]) > float(self.isTemp[i]):  
-                    #    #print("on")
-                    #    self.state[i] = "on"
-                    #else:
-                    #    #print("off")
-                    #    self.state[i] = "off"
-
-                    if float(output[i][1]) - self.hysterese/2 >= float(self.isTemp[i]):  # mit Hysterese
-                        self.state[i] = "on"
-                    elif float(output[i][1]) + self.hysterese/2 <= float(self.isTemp[i]):  # mit Hysterese
-                        self.state[i] = "off"
+                for client in self.clients:
+                    setTemp = self.Timer.get_recent_temp(client)
+                    if float(setTemp) - self.hysterese/2 >= float(self.isTemp[client]):  # mit Hysterese
+                        self.state[client] = "on"
+                    elif float(setTemp) + self.hysterese/2 <= float(self.isTemp[client]):  # mit Hysterese
+                        self.state[client] = "off"
                 logger("Timerloop: "+ str(self.state),logging)
                 self.hw_state()
-
-
                 self.t_stop.wait(60)
             if self.t_stop.is_set():
                 logger("Ausgetimed!",logging)
         #except Exception as e:
         #    logger(e,logging)
 
-
-
     def read_config(self):
-        try:
+        if True:
+        #try:
             self.inifile = socket.gethostname()
             self.basehost = socket.gethostname() + '.local'
             realpath = os.path.realpath(__file__)
@@ -282,19 +253,26 @@ class steuerung(threading.Thread):
             self.config.read(setfile)
             self.baseport = int(self.config['BASE']['Port'])
             self.hysterese = float(self.config['BASE']['Hysterese'])
-            self.clients = self.config['BASE']['Clients'].split(";")
+            clients = self.config['BASE']['Clients'].split(";")
             self.sensors = self.config['BASE']['Sensors'].split(";")
             self.sensor_ids = self.config['BASE']['Sensor_IDs'].split(";")
             self.pumpe = int(self.config['BASE']['Pumpe'])
-            self.relais_tmp = self.config['BASE']['Relais'].split(";")
-            self.relais = []
-            for i in range(len(self.relais_tmp)):
-                    tmp = (self.relais_tmp[i].split(","))
+            relais_tmp = self.config['BASE']['Relais'].split(";")
+            relais = []
+            for i in range(len(relais_tmp)):
+                    tmp = (relais_tmp[i].split(","))
                     tmp1 = []
                     for j in range(len(tmp)):
                         tmp1.append(int(tmp[j]))
-                    self.relais.append(tmp1)
-            logger("Relais List: " + str(self.relais), logging)
+                    relais.append(tmp1)
+            self.clients = {}
+            self.state = {}
+            i = 0
+            for client in clients:
+                self.state[client] = "off"
+                self.clients[client] = relais[i]
+                i += 1
+            logger("Relais List: " + str(relais), logging)
             self.polarity = self.config['BASE']['Polarity']
             self.unusedRel = self.config['BASE']['UnusedRel'].split(";")
             if self.polarity == "invers":
@@ -303,9 +281,6 @@ class steuerung(threading.Thread):
             else:
                 self.on = 1
                 self.off = 0
-            self.state = []
-            for i in range(len(self.clients)):
-                self.state.append("off")
             self.logpath = os.path.join(basepath, 'log')
             self.timerpath = setpath
             self.mysqluser = self.config['BASE']['Mysqluser']
@@ -313,31 +288,30 @@ class steuerung(threading.Thread):
             self.mysqlserv = self.config['BASE']['Mysqlserv']
             self.mysqldb = self.config['BASE']['Mysqldb']
 
-        except:
-            logger("Configuration error", logging)
+        #except:
+        #    logger("Configuration error", logging)
 
     def set_hw(self):
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)
-
         for i in self.unusedRel:
             if not i == '':
                 i = int(i)
                 GPIO.setup(i, GPIO.OUT)
                 GPIO.output(i, self.off)
                 logger("Setting BMC " + str(i) + " as unused -> off", logging)
-        for i in self.relais:
-            for j in i:
+        for client in self.clients:
+            for j in self.clients[client]:
                 GPIO.setup(j, GPIO.OUT)
                 GPIO.output(j, self.off)
                 logger("Setting BMC " + str(j) + " as output", logging)
-        GPIO.setup(self.pumpe, GPIO.OUT)
-        GPIO.output(self.pumpe, self.off)
-        logger("Setting BMC " + str(self.pumpe) + " as output", logging)
+        if(self.pumpe > 0):
+            GPIO.setup(self.pumpe, GPIO.OUT)
+            GPIO.output(self.pumpe, self.off)
+            logger("Setting BMC " + str(self.pumpe) + " as output", logging)
+        else:
+            logger("Not using pump", logging)
  
-        
-        
-
     def log_state(self):
         try:
             logger("Starting Logthread as " + threading.currentThread().getName(), logging)
@@ -363,7 +337,8 @@ class steuerung(threading.Thread):
                         self.mysql_write(now, self.clients[i], float(0))
                 #with open(self.logpath+"/Tempsensors.txt", "a") as templogfile:
                     #templogfile.write(now+",%6.2f" % self.w1.getValue(self.w1_slaves[0])+",%6.2f" %self.w1.getValue(self.w1_slaves[1]) + "\r\n" )
-                self.mysql_write(now, "ntPumpeDG", float(GPIO.input(self.pumpe)))
+                if(self.pumpe > 0):
+                    self.mysql_write(now, "ntPumpeDG", float(GPIO.input(self.pumpe)))
                     #self.mysql_write(now, "ntVorlaufDG", self.w1.getValue(self.w1_slaves[1]))
                             #self.mysql_write(now, self.sensors[idx], self.w1.getValue(self.sensor_ids[idx]))
             if self.t_stop.is_set():
@@ -372,6 +347,9 @@ class steuerung(threading.Thread):
             logger(e, logging)
 
     def set_pumpe(self):
+        if(self.pumpe < 1):
+            logger("Not starting Pumpenthread, no pump present",logging)
+            return
         try:
             logger("Starting Pumpenthread as " + threading.currentThread().getName(), logging)
             while(not self.t_stop.is_set()):
@@ -400,36 +378,29 @@ class steuerung(threading.Thread):
 
     def hw_state(self):
         logger("hw_state setting values " + str(self.state), logging)
-        for i in range(len(self.state)):
-            if self.state[i] == "on":
+        for client in self.clients:
+            if self.state[client] == "on":
                 val = self.on
             else:
                 val = self.off
-            for j in range(len(self.relais[i])):
-                GPIO.output(self.relais[i][j],val)
+            for relais in self.clients[client]:
+                GPIO.output(relais,val)
  
+
 
     def get_state(self):
         state = {}
-        for i in range(len(self.clients)):
-            state[self.clients[i]] = self.state[i]
-        tmp = GPIO.input(self.pumpe)
-        if tmp == 1:
-            tmp = "on"
-        else:
-            tmp = "off"
-        state["Pumpe"] = tmp
-        #state = ""
         #for i in range(len(self.clients)):
-        #    state = state + " " + self.clients[i] + ":" + self.state[i] + ";"
+        #    state[self.clients[i]] = self.state[i]
         #tmp = GPIO.input(self.pumpe)
         #if tmp == 1:
         #    tmp = "on"
         #else:
         #    tmp = "off"
-        #state = state + " Pumpe:" + tmp
-
-        return state
+        #state["Pumpe"] = tmp
+        #return state
+        print(self.state)
+        return(self.state)
 
     def get_temp(self):
         temp = ""
