@@ -102,15 +102,20 @@ class steuerung(threading.Thread):
             logger("Das ist mal kein JSON, pff!", logging)
             ret = json.dumps({"Antwort": "Kaa JSON Dings!"})
         if(jcmd['Aktion'] == "Zustand"):
-            ret = self.get_state()
+            ret = self.zustand()
+            logger(ret,logging)
         else:
              ret = json.dumps({"Antwort":"Fehler","Wert":"Kein gültiges Kommando"})
 
         return(ret)
 
     def zustand(self):
-        tmp = self.get_state()
-        zustand = json.dumps({tmp})
+
+        logger("Zustand?",logging)
+        state = self.get_state()
+        sollTemp = {"WZ":18, "AZ":18.1, "SZ":17.5, "BadEG":23, "K":19}
+        istTemp = {"WZ":18.5, "AZ":18.6, "SZ":17.3, "BadEG":21.4, "K":19.6}
+        zustand = json.dumps({"Status":state,"SollTemp":sollTemp,"IstTemp":istTemp})
         return(zustand)
 
 
