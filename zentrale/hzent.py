@@ -82,6 +82,23 @@ class steuerung(threading.Thread):
             except Exception as e:
                 logging.info("Uiui, beim UDP senden/empfangen hat's kracht!" + str(e))
 
+    def get_oekofen_pumpe(self, pelle):
+        """ Get status from Oekofen heating pump
+        Retries, if no response
+
+        """
+        ret = -1
+        while(ret == -1):
+            try:
+                 with urllib.request.urlopen(pelle) as response:
+                     mydata = response.read()
+                     d = json.loads(mydata.decode())
+                     ret = d["hk1"]["L_pump"]
+            except:
+                ret = -1
+                time.sleep(1)
+        return(ret)
+
     def parseCmd(self, data):
         data = data.decode()
         try:
