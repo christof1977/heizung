@@ -73,11 +73,11 @@ class steuerung(threading.Thread):
         while(not self.t_stop.is_set()):
             try:
                 data, addr = self.udpSock.recvfrom( 1024 )# Puffer-Groesse ist 1024 Bytes.
-                logging.info("Kimm ja scho")
+                logging.debug("Kimm ja scho")
                 ret = self.parseCmd(data) # Abfrage der Fernbedienung (UDP-Server), der Rest passiert per Interrupt/Event
                 self.udpSock.sendto(str(ret).encode('utf-8'), addr)
             except Exception as e:
-                logging.info("Uiui, beim UDP senden/empfangen hat's kracht!" + str(e))
+                logging.warning("Uiui, beim UDP senden/empfangen hat's kracht!" + str(e))
 
     def get_oekofen_pumpe(self, pelle):
         """ Get status from Oekofen heating pump
@@ -129,7 +129,7 @@ class steuerung(threading.Thread):
             ret = self.set_room_mode(jcmd['room'],jcmd['mode'])
         else:
              ret = json.dumps({"answer":"Fehler","Wert":"Kein gültiges Kommando"})
-        logging.info(ret)
+        logging.debug(ret)
         return(ret)
 
     def get_rooms(self):
