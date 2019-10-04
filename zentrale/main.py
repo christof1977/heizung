@@ -15,17 +15,18 @@ from threading import Thread
 import urllib
 import urllib.request
 import logging
-logging.basicConfig(level=logging.DEBUG)
 
 
 # TODO
 # - Integration Ist-Temperatur
 # - Manueller Betrieb
-# - Monit-Umbau auf JSON
 # - Sauberes Beenden
+# - Mode reset
+# - Mysql extern
+# - Datenbankl-logging
 
-#logging = True
 udp_port = 5005
+logging.basicConfig(level=logging.INFO)
 
 
 class steuerung(threading.Thread):
@@ -33,10 +34,7 @@ class steuerung(threading.Thread):
         threading.Thread.__init__(self)
         logging.info("Starting Steuerungthread as " + threading.currentThread().getName())
         self.t_stop = threading.Event()
-        self.delay = .1
-
         self.read_config()
-
         self.sensor_values = [18.5]
         for i in range(len(self.sensors)-1):
                 self.sensor_values.append(18.5)
@@ -488,9 +486,6 @@ class steuerung(threading.Thread):
                 if(self.pumpe > 0):
                     GPIO.output(self.pumpe, self.off)
                     logging.info("Switching BMC " + str(self.pumpe) + " off")
-                #for i in range(len(self.rel)):
-                #    GPIO.output(self.rel[i], 0)
-                #    time.sleep(self.delay)
  
                 GPIO.cleanup()
                 self.t_stop.set()
