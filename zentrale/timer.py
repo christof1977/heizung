@@ -7,25 +7,15 @@ import os
 import json
 
 #TODO
-# - Altlasten entfernen
 # - Check, ob room auch in JSON-File exisitert
-
-def read_config():
-    import configparser
-    config = configparser.ConfigParser()
-    config.read('/home/heizung/heizung/zentrale/settings/heizung.ini')
-    clients = config['BASE']['Clients'].split(";")
-    path = config['BASE']['Path']
-    timerpath = path+"/settings/"
-    return clients, timerpath
 
 
 class timer(object):
     pass
 
-    def __init__(self, jsonfile, clients, path):
-        self.clients = clients
-        self.path = path
+    def __init__(self, jsonfile):
+        #self.clients = clients
+        #self.path = path
         self.tl = self.read_json(jsonfile)
 
     def read_json(self, jsonfile):
@@ -33,57 +23,6 @@ class timer(object):
             data = json.load(fhd)
         return(data)
         
-
-    def read(self):
-        #import csv
-        self.times = [[] for i in range(len(self.clients))]
-        self.states = [[] for i in range(len(self.clients))]
-        cl_idx = 0
-        for client in self.clients:
-            filename = os.path.join(self.path, client + ".csv")
-            try:
-                with open(filename, newline='') as csvfile:
-                    reader = csv.reader(csvfile, delimiter=',')
-                    for row in reader:
-                        self.times[cl_idx].append(row[0])
-                        self.states[cl_idx].append(row[1])
-                #print(self.times[cl_idx])
-                #print(self.states[cl_idx])
-                cl_idx += 1
-            except:
-                print("Error")
-
-
-        #print(self.times)
-        #print(self.states)
-        #print(now)
-        return self.times, self.states
-
-    def show(self):
-        i = 0
-        for client in self.clients:
-            print(client)
-            n = 0
-            for j in self.times[i]:
-                print(j + " -> " + self.states[i][n])
-                n += 1
-            print("")
-            i += 1
-
-
-    def operate(self):
-        #import time
-        output=[]
-        now=time.strftime("%H:%M")
-        for i in range(len(self.clients)):
-            for j in range(len(self.times[i])):
-                if now < self.times[i][j]:
-                    idx = j - 1
-                    break
-                idx = j
-            output.append([(self.clients[i]), (self.states[i][idx])])
-        return output
-
     def get_day_list(self, dayrange):
         days = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
         dow = []
@@ -143,24 +82,14 @@ class timer(object):
 
 def main():
        
-    clients = ["K", "BadEG", "WZ", "SZ", "AZ"]
+    #clients = ["K", "BadEG", "WZ", "SZ", "AZ"]
     jsonfile = "settings/timer.json"
-    #print(clients)
-    #print(timerpath)
-    Timer = timer(jsonfile, clients, "settings/")
-    #times, states = Timer.read()
+    Timer = timer(jsonfile)
     rooms = Timer.get_rooms()
     room = "WZ"
 
     #timer_list = Timer.get_timer_list(room)
     print(Timer.get_recent_temp(room))
-
-
-    #print(states)
-    #Timer.show()
-    #output = Timer.operate()
-    #print(output)
-
 
 if __name__ == "__main__":
     main()
