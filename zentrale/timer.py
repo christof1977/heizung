@@ -7,7 +7,6 @@ import os
 import json
 
 #TODO
-# - Check, ob room auch in JSON-File exisitert
 
 
 class timer(object):
@@ -22,6 +21,13 @@ class timer(object):
         with open (jsonfile,"r") as fhd:
             data = json.load(fhd)
         return(data)
+
+    def check_room(self, room):
+        if(room in self.get_rooms()):
+            ret = True
+        else:
+            ret = False
+        return(ret)
         
     def get_day_list(self, dayrange):
         days = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
@@ -53,6 +59,8 @@ class timer(object):
         return(self.tl.keys())
 
     def get_timer_list(self, room):
+        if not self.check_room(room):
+            return(-1)
         timer_list = {}
         for dayrange in self.tl[room]["settings"].keys():
             dow = self.get_day_list(dayrange)
@@ -66,6 +74,8 @@ class timer(object):
         return(timer_list)
 
     def get_recent_temp(self, room):
+        if not self.check_room(room):
+            return(-1)
         now = datetime.datetime.now()
         timer_list = self.get_timer_list(room)
         day = datetime.datetime.today().weekday()
@@ -87,9 +97,11 @@ def main():
     Timer = timer(jsonfile)
     rooms = Timer.get_rooms()
     room = "WZ"
+    #Timer.check_room(room)
 
     #timer_list = Timer.get_timer_list(room)
     print(Timer.get_recent_temp(room))
+    print(Timer.get_recent_temp("gn"))
 
 if __name__ == "__main__":
     main()
