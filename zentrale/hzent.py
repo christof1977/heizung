@@ -12,17 +12,16 @@ from libby import tempsensors
 import mysql.connector
 import threading
 from threading import Thread
-#from libby.logger import logger
+import urllib
+import urllib.request
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
 
 # TODO
-# - Heizungsbetrieb abhängig von Umwälzpumpe im Keller
-# - Integrtion Ist-Temperatur
+# - Integration Ist-Temperatur
 # - Manueller Betrieb
 # - Monit-Umbau auf JSON
-# - jsonfile korrekt laden
 # - Sauberes Beenden
 
 #logging = True
@@ -97,6 +96,10 @@ class steuerung(threading.Thread):
             except:
                 ret = -1
                 time.sleep(1)
+        if(ret in ["true", "True", "TRUE"]):
+            ret = True
+        else:
+            ret = False
         return(ret)
 
     def parseCmd(self, data):
@@ -105,7 +108,7 @@ class steuerung(threading.Thread):
             jcmd = json.loads(data)
             #logging.info(jcmd['command'])
         except:
-            logging.info("Das ist mal kein JSON, pff!")
+            logging.warning("Das ist mal kein JSON, pff!")
             ret = json.dumps({"answer": "Kaa JSON Dings!"})
             return(ret)
         if(jcmd['command'] == "getStatus"):
@@ -122,6 +125,10 @@ class steuerung(threading.Thread):
             ret = self.get_room_status(jcmd['room'])
         elif(jcmd['command'] == "setRoomStatus"):
             ret = self.set_room_status(jcmd['room'])
+        elif(jcmd['command'] == "getRoomMode"):
+            ret = self.get_room_mode(jcmd['room'])
+        elif(jcmd['command'] == "setRoomMode"):
+            ret = self.set_room_mode(jcmd['room'],jcmd['mode'])
         else:
              ret = json.dumps({"answer":"Fehler","Wert":"Kein gültiges Kommando"})
         logging.info(ret)
@@ -175,6 +182,19 @@ class steuerung(threading.Thread):
         logging.info("Zustand?")
         return(json.dumps(self.clients))
 
+    def get_room_mode(self, room):
+        """ Returning mode of room
+
+        """
+        return(json.dumps({"answer":"getRoomMode","room":room,"mode":self.clients[room]["Mode"]}))
+
+    def set_room_mode(self, room, mode):
+        """ Setting mode of room
+
+        """
+        self.clients[room]["Mode"] = mode
+        return(json.dumps({"answer":"setRoomMode","room":room,"mode":self.clients[room]["Mode"]}))
+
     def mysql_start(self):
         self.mysql_success = False
         try:
@@ -215,13 +235,27 @@ class steuerung(threading.Thread):
         #try:
             logging.info("Starting Timeroperationthread as " + threading.currentThread().getName())
             while(not self.t_stop.is_set()):
-                for client in self.clients:
-                    self.clients[client]["setTemp"] = self.Timer.get_recent_temp(client)
-                    if float(self.clients[client]["setTemp"])  - self.hysterese/2 >= float(self.clients[client]["isTemp"]):  # mit Hysterese
-                        self.clients[client]["Status"] = "on"
-                    elif float(self.clients[client]["setTemp"]) + self.hysterese/2 <= float(self.clients[client]["isTemp"]):  # mit Hysterese
+                if(self.get_oekofen_pumpe(self.pelle)):
+                    logging.info("Umwaelzpumpe an")
+                    for client in self.clients:
+                        if(self.clients[client]["Mode"] == "auto"):
+                            self.clients[client]["setTemp"] = self.Timer.get_recent_temp(client)
+                            if float(self.clients[client]["setTemp"])  - self.hysterese/2 >= float(self.clients[client]["isTemp"]):  # mit Hysterese
+                                self.clients[client]["Status"] = "on"
+                            elif float(self.clients[client]["setTemp"]) + self.hysterese/2 <= float(self.clients[client]["isTemp"]):  # mit Hysterese
+                                self.clients[client]["Status"] = "off"
+                            logging.debug(client + " running in auto mode, setting state to " + self.clients[client]["Status"])
+                        elif(self.clients[client]["Mode"] == "on"):
+                            self.clients[client]["Status"] = "on"
+                            logging.debug(client + " running in manual mode, setting state to " + self.clients[client]["Status"])
+                        else:
+                            self.clients[client]["Status"] = "off"
+                            logging.debug(client + " running in manual mode, setting state to " + self.clients[client]["Status"])
+                else:
+                    logging.info("Umwaelzpumpe aus")
+                    for client in self.clients:
                         self.clients[client]["Status"] = "off"
-                #logging.info("Timerloop: "+ str(self.state))
+                        logging.debug("heating pump off, setting "+ client +" state to " + self.clients[client]["Status"])
                 self.hw_state()
                 self.t_stop.wait(60)
             if self.t_stop.is_set():
@@ -263,7 +297,7 @@ class steuerung(threading.Thread):
                 self.clients[client] = {}
                 self.clients[client]["Relais"] = relais[i]
                 self.clients[client]["Status"] = "off"
-                self.clients[client]["Timer"] = True
+                self.clients[client]["Mode"] = "auto"
                 self.clients[client]["setTemp"] = 0
                 self.clients[client]["isTemp"] = 18
                 i += 1
