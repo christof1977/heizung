@@ -6,6 +6,10 @@ import csv
 import os
 import json
 
+#TODO
+# - Altlasten entfernen
+# - Check, ob room auch in JSON-File exisitert
+
 def read_config():
     import configparser
     config = configparser.ConfigParser()
