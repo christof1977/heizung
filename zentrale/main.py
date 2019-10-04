@@ -4,6 +4,7 @@ import os
 import RPi.GPIO as GPIO
 import sys
 import time
+import datetime
 import configparser
 import json
 from timer import timer
@@ -23,7 +24,7 @@ import logging
 # - Sauberes Beenden
 # - Mode reset
 # - Mysql extern
-# - Datenbankl-logging
+# - Datenbank-logging
 
 udp_port = 5005
 logging.basicConfig(level=logging.INFO)
@@ -42,6 +43,8 @@ class steuerung(threading.Thread):
         self.mysql_success = False
         self.mysql_start()
 
+        self.system = {"ModeReset":"2:00"}
+
 
         logging.info("Starting UDP-Server at " + self.basehost + ":" + str(self.baseport))
         self.e_udp_sock = socket.socket( socket.AF_INET,  socket.SOCK_DGRAM )
@@ -52,9 +55,16 @@ class steuerung(threading.Thread):
         self.w1 = tempsensors.onewires()
         self.w1_slaves = self.w1.enumerate()
         self.Timer = timer(self.timerfile)
-        threading.Thread(target=self.set_pumpe).start()
+        
+        #Starting Threads
+        pumpT = threading.Thread(target=self.set_pumpe)
+        pumpT.setDaemon(True)
+        pumpT.start()
+
+        timerT = threading.Thread(target=self.timer_operation)
+        timerT.setDaemon(True)
+        timerT.start()
         #threading.Thread(target=self.log_state).start()
-        threading.Thread(target=self.timer_operation).start()
         self.udpServer()
 
     def udpServer(self):
@@ -63,7 +73,7 @@ class steuerung(threading.Thread):
         self.udpSock.bind( (self.basehost,udp_port) )
         #self.udpSock.bind( ('fbhdg.local',udp_port) )
 
-        self.t_stop = threading.Event()
+        #self.t_stop = threading.Event()
         udpT = threading.Thread(target=self._udpServer)
         udpT.setDaemon(True)
         udpT.start()
@@ -229,10 +239,33 @@ class steuerung(threading.Thread):
         else:
             self.mysql_start()
 
+    def check_reset(self):
+        if(self.system["ModeReset"]!="off"):
+            now = datetime.datetime.now()
+            now_h = int(now.hour) 
+            now_m = int(now.minute)
+            res_h = int(self.system["ModeReset"].split(":")[0])
+            res_m = int(self.system["ModeReset"].split(":")[1])
+            if(now_h == res_h):
+                if(now_m == res_m or now_m == res_m+1):
+                    logging.info("Resetting mode to auto")
+                    for client in self.clients:
+                        self.clients[client]["Mode"] = "auto"
+
+                
+            #print(datestring)
+            #now = now.strftime("%Y-%m-%d %H:%M")
+            #print(now)
+            #d=datetime.datetime.strftime(datestring,'%Y-%m-%d %H:%M')
+            #print(d)
+            #if(now == d):
+
+
     def timer_operation(self):
         #try:
             logging.info("Starting Timeroperationthread as " + threading.currentThread().getName())
             while(not self.t_stop.is_set()):
+                self.check_reset()
                 if(self.get_oekofen_pumpe(self.pelle)):
                     logging.info("Umwaelzpumpe an")
                     for client in self.clients:
@@ -419,6 +452,15 @@ class steuerung(threading.Thread):
     def stop(self):
         self.t_stop.set()
         logging.info("Steuerung: So long sucker!")
+        for client in self.clients:
+            for j in self.clients[client]["Relais"]:
+                GPIO.output(j, self.off)
+                logging.info("Switching BMC " + str(j) + " off")
+        if(self.pumpe > 0):
+            GPIO.output(self.pumpe, self.off)
+            logging.info("Switching BMC " + str(self.pumpe) + " off")
+        GPIO.cleanup()
+        self.mysql_close()
         #print(threading.enumerate())
         exit()
 
@@ -477,24 +519,12 @@ class steuerung(threading.Thread):
                 #        else:
                 #            GPIO.output(self.relais[i][j], 1)
             except KeyboardInterrupt: # CTRL+C exiti
-                logging.info("So long sucker!")
-                for client in self.clients:
-                    for j in self.clients[client]["Relais"]:
-                        GPIO.output(j, self.off)
-                        logging.info("Switching BMC " + str(j) + " off")
-                if(self.pumpe > 0):
-                    GPIO.output(self.pumpe, self.off)
-                    logging.info("Switching BMC " + str(self.pumpe) + " off")
- 
-                GPIO.cleanup()
-                self.t_stop.set()
-                self.mysql_close()
+                self.stop()
                 break
 
 if __name__ == "__main__":
     steuerung = steuerung()
     steuerung.start()
     steuerung.run()
-    steuerung.stop()
     
 
