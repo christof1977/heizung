@@ -12,10 +12,16 @@ from libby import tempsensors
 import mysql.connector
 import threading
 from threading import Thread
-from flask import Flask, render_template, request, jsonify
 from libby.logger import logger
-#import pins as Pins
 
+# TODO
+# - Heizungsbetrieb abhängig von Umwälzpumpe im Keller
+# - Integrtion Ist-Temperatur
+# - Manueller Betrieb
+# - Umsiteg auf logging-Modul
+# - Monit-Umbau auf JSON
+# - jsonfile korrekt laden
+# - Sauberes Beenden
 
 logging = True
 udp_port = 5005
@@ -25,10 +31,6 @@ class steuerung(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
         logger("Starting Steuerungthread as " + threading.currentThread().getName(),logging)
-        #super(steuerung, self).__init__()
-        #print(threading.enumerate())
-        #print("Initthread:")
-        #print(threading.current_thread())
         self.t_stop = threading.Event()
         self.delay = .1
 
@@ -56,12 +58,9 @@ class steuerung(threading.Thread):
         self.w1 = tempsensors.onewires()
         self.w1_slaves = self.w1.enumerate()
         self.Timer = timer("/home/heizung/heizung/zentrale/settings/timer.json", self.clients, self.timerpath)
-        self.timer_read()
         threading.Thread(target=self.set_pumpe).start()
         threading.Thread(target=self.log_state).start()
         threading.Thread(target=self.timer_operation).start()
-        #threading.Thread(target=self.threadwatcher).start()
-        #print(threading.enumerate())
         self.udpServer()
 
     def udpServer(self):
@@ -167,20 +166,6 @@ class steuerung(threading.Thread):
         zustand = json.dumps({"Status":state,"SollTemp":sollTemp,"IstTemp":istTemp})
         return(zustand)
 
-
-    def threadwatcher(self):
-        try:
-            logger("Starting Threadwatcherthread as " + threading.currentThread().getName(),logging)
-            while(not self.t_stop.is_set()):
-                enum = threading.enumerate()
-                for i in range(len(enum)):
-                    logger("[Threadwatcher]: " + str(enum[i]),logging)
-                self.t_stop.wait(10)
-            if self.t_stop.is_set():
-                logger("Ausgewatcht",logging)
-        except Exception as e:
-            logger(e,logging)
-
     def mysql_start(self):
         self.mysql_success = False
         try:
@@ -216,9 +201,6 @@ class steuerung(threading.Thread):
                 self.mysql_start()
         else:
             self.mysql_start()
-
-    def timer_read(self):
-        self.Timer.read()
 
     def timer_operation(self):
         #try:
@@ -291,7 +273,7 @@ class steuerung(threading.Thread):
         #except:
         #    logger("Configuration error", logging)
 
-    def set_hw(self):
+    def set_hw(self):  # OK
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)
         for i in self.unusedRel:
@@ -346,7 +328,7 @@ class steuerung(threading.Thread):
         except Exception as e:
             logger(e, logging)
 
-    def set_pumpe(self):
+    def set_pumpe(self): #OK
         if(self.pumpe < 1):
             logger("Not starting Pumpenthread, no pump present",logging)
             return
@@ -376,7 +358,7 @@ class steuerung(threading.Thread):
         except Exception as e:
             logger(e, logging)
 
-    def hw_state(self):
+    def hw_state(self): #OK
         logger("hw_state setting values " + str(self.state), logging)
         for client in self.clients:
             if self.state[client] == "on":
@@ -386,8 +368,6 @@ class steuerung(threading.Thread):
             for relais in self.clients[client]:
                 GPIO.output(relais,val)
  
-
-
     def get_state(self):
         state = {}
         #for i in range(len(self.clients)):
@@ -401,24 +381,6 @@ class steuerung(threading.Thread):
         #return state
         print(self.state)
         return(self.state)
-
-    def get_temp(self):
-        temp = ""
-        #for i in range(len(self.clients)):
-            #temp = temp + str(self.isTemp[i]) + ";"
-        for i in range(len(self.sensor_values)):
-            temp = temp + str(self.sensor_values[i]) + ";"
-        return temp
-
-    def set_state(self, room, state):
-        try:
-            room_idx = self.clients.index(room)
-            logger("Setting room "+room+" "+state, logging)
-            self.state[room_idx] = state
-            self.hw_state()
-        except:
-            logger("Error: No such room!", logging)
-            pass
 
     def stop(self):
         self.t_stop.set()
@@ -482,12 +444,13 @@ class steuerung(threading.Thread):
                 #            GPIO.output(self.relais[i][j], 1)
             except KeyboardInterrupt: # CTRL+C exiti
                 logger("So long sucker!", logging)
-                for i in self.relais:
-                    for j in i:
+                for client in self.clients:
+                    for j in self.clients[client]:
                         GPIO.output(j, self.off)
                         logger("Switching BMC " + str(j) + " off", logging)
-                GPIO.output(self.pumpe, self.off)
-                logger("Switching BMC " + str(self.pumpe) + " off", logging)
+                if(self.pumpe > 0):
+                    GPIO.output(self.pumpe, self.off)
+                    logger("Switching BMC " + str(self.pumpe) + " off", logging)
                 #for i in range(len(self.rel)):
                 #    GPIO.output(self.rel[i], 0)
                 #    time.sleep(self.delay)
@@ -497,75 +460,10 @@ class steuerung(threading.Thread):
                 self.mysql_close()
                 break
 
-
-
-app = Flask(__name__)
-app.config['TEMPLATES_AUTO_RELOAD'] = True
-steuerung = steuerung()
-
-
-# return index page when IP address of RPi is typed in the browser
-@app.route("/")
-def Index():
-    return render_template(socket.gethostname() + ".html")
-
-@app.route("/timer")
-def Timer():
-    return render_template("timer.html")
-
-
-
-@app.route("/_operate")
-def operate():
-    room = request.args.get('room')
-    state = request.args.get('state')
-    #print(room)
-    #print(state)
-    steuerung.set_state(room, state)
-    return ""
-
-
-@app.route("/_state")
-def state():
-    state=json.dumps(steuerung.get_state())
-    print(state)
-    temp=steuerung.get_temp()
-    now=time.strftime("%H:%M:%S")
-    return jsonify(heizungState=state,raumTemp=temp,rettime=now)
-
-@app.route("/_gettime")
-def gettime():
-    rettime=now = str(time.time())
-    return jsonify(rettime=rettime)
-
-
-@app.route('/shutdown')
-def shutdown():
-    shutdown_server()
-    return 'Server shutting down...'
-
-@app.route('/_reloadtimer')
-def reload_timer():
-    logger("Reload Timer", logging)
-    steuerung.timer_read()
-    return "Timer reloaded"
-
-
-def shutdown_server():
-    #steuerung.stop()
-    func = request.environ.get('werkzeug.server.shutdown')
-    if func is None:
-        raise RuntimeError('Not running with the Werkzeug Server')
-    func()
-
-
 if __name__ == "__main__":
+    steuerung = steuerung()
     steuerung.start()
-    app.run(host='0.0.0.0', port=8080, debug=False, use_reloader=False)
-    time.sleep(2)
-    logger("Geschlafen", logging)
-    #print(threading.enumerate())
+    steuerung.run()
     steuerung.stop()
-    #print(threading.enumerate())
     
 
