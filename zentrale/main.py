@@ -199,7 +199,7 @@ class steuerung(threading.Thread):
             self.cnx = mysql.connector.connect(user=self.mysqluser, password=self.mysqlpass,host=self.mysqlserv,database=self.mysqldb)
             self.cursor = self.cnx.cursor()
             self.mysql_success = True
-            logging("Database connection established")
+            logging.info("Database connection established")
         except Exception as e:
             try:
                 self.mysql_success = False
@@ -387,9 +387,8 @@ class steuerung(threading.Thread):
                 # Checking, wether on of the room outputs is switches on -> if yes, switch pump on
                 # First, Outputs are checked and their values are collected in state[]
                 state = []
-                for i in range(len(self.relais)):
-                        for j in range(len(self.relais[i])):
-                            state.append(GPIO.input(self.relais[i][j]))
+                for client in self.clients:
+                    state.append(self.clients[client]["Status"])
                 # Check, if any of the outputs is switched to on, if yes, activate pump
                 if any(state) == self.on: 
                     if GPIO.input(self.pumpe) == self.off:
