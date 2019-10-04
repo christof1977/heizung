@@ -170,7 +170,7 @@ class steuerung(threading.Thread):
         """ function to see, if we are alive
 
         """
-        return(json.dumps({"answer":"Freilich"}))
+        return(json.dumps({"name":self.hostname,"answer":"Freilich"}))
 
 
     def get_status(self):
@@ -264,12 +264,12 @@ class steuerung(threading.Thread):
     def read_config(self):
         if True:
         #try:
-            hostname = socket.gethostname()
-            self.basehost = hostname + '.local'
+            self.hostname = socket.gethostname()
+            self.basehost = self.hostname + '.local'
             realpath = os.path.realpath(__file__)
             basepath = os.path.split(realpath)[0]
             setpath = os.path.join(basepath, 'settings')
-            inifile = os.path.join(setpath, hostname + '.ini')
+            inifile = os.path.join(setpath, self.hostname + '.ini')
 
             self.config = configparser.ConfigParser()
             logging.info("Loading " + inifile)
