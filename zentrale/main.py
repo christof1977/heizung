@@ -61,6 +61,10 @@ class steuerung(threading.Thread):
         pumpT.setDaemon(True)
         pumpT.start()
 
+        timerT = threading.Thread(target=self.short_timer)
+        timerT.setDaemon(True)
+        timerT.start()
+
         timerT = threading.Thread(target=self.timer_operation)
         timerT.setDaemon(True)
         timerT.start()
@@ -87,7 +91,11 @@ class steuerung(threading.Thread):
                 ret = self.parseCmd(data) # Abfrage der Fernbedienung (UDP-Server), der Rest passiert per Interrupt/Event
                 self.udpSock.sendto(str(ret).encode('utf-8'), addr)
             except Exception as e:
-                logging.warning("Uiui, beim UDP senden/empfangen hat's kracht!" + str(e))
+                try:
+                    self.udpSock.sendto(str('{"answer":"error"}').encode('utf-8'), addr)
+                    logging.warning("Uiui, beim UDP senden/empfangen hat's kracht!" + str(e))
+                except Exception as o:
+                    logging.warning("Uiui, beim UDP senden/empfangen hat's richtig kracht!" + str(o))
 
     def get_oekofen_pumpe(self, pelle):
         """ Get status from Oekofen heating pump
@@ -114,7 +122,7 @@ class steuerung(threading.Thread):
         data = data.decode()
         try:
             jcmd = json.loads(data)
-            #logging.info(jcmd['command'])
+            logging.debug(jcmd['command'])
         except:
             logging.warning("Das ist mal kein JSON, pff!")
             ret = json.dumps({"answer": "Kaa JSON Dings!"})
@@ -126,17 +134,22 @@ class steuerung(threading.Thread):
         elif(jcmd['command'] == "getRooms"):
             ret = self.get_rooms()
         elif(jcmd['command'] == "getTimer"):
-            ret = self.get_timer(jcmd['room'])
+            ret = self.get_timer(jcmd['Room'])
         elif(jcmd['command'] == "setTimer"):
-            ret = self.set_timer(jcmd['room'])
+            ret = self.set_timer(jcmd['Room'])
         elif(jcmd['command'] == "getRoomStatus"):
-            ret = self.get_room_status(jcmd['room'])
+            ret = self.get_room_status(jcmd['Room'])
         elif(jcmd['command'] == "setRoomStatus"):
-            ret = self.set_room_status(jcmd['room'])
+            ret = self.set_room_status(jcmd['Room'])
         elif(jcmd['command'] == "getRoomMode"):
-            ret = self.get_room_mode(jcmd['room'])
+            ret = self.get_room_mode(jcmd['Room'])
         elif(jcmd['command'] == "setRoomMode"):
-            ret = self.set_room_mode(jcmd['room'],jcmd['mode'])
+            ret = self.set_room_mode(jcmd['Room'],jcmd['Mode'])
+        elif(jcmd['command'] == "getRoomShortTimer"):
+            ret = self.get_room_shorttimer(jcmd['Room'])
+        elif(jcmd['command'] == "setRoomShortTimer"):
+            logging.debug(jcmd)
+            ret = self.set_room_shorttimer(jcmd['Room'],jcmd['Time'],jcmd['Mode'])
         else:
              ret = json.dumps({"answer":"Fehler","Wert":"Kein gültiges Kommando"})
         logging.debug(ret)
@@ -203,6 +216,18 @@ class steuerung(threading.Thread):
         self.clients[room]["Mode"] = mode
         return(json.dumps({"answer":"setRoomMode","room":room,"mode":self.clients[room]["Mode"]}))
 
+    def get_room_shorttimer(self, room):
+        return(json.dumps(self.clients[room]["Shorttimer"]))
+
+    def set_room_shorttimer(self, room, time, mode):
+        try:
+            self.clients[room]["Shorttimer"] = int(time)
+            self.clients[room]["Mode"] = mode
+            return(json.dumps(self.clients[room]["Shorttimer"]))
+        except:
+            return('{"answer":"error","command":"Shorttimer"}')
+
+
     def mysql_start(self):
         self.mysql_success = False
         try:
@@ -252,14 +277,26 @@ class steuerung(threading.Thread):
                     for client in self.clients:
                         self.clients[client]["Mode"] = "auto"
 
-                
-            #print(datestring)
-            #now = now.strftime("%Y-%m-%d %H:%M")
-            #print(now)
-            #d=datetime.datetime.strftime(datestring,'%Y-%m-%d %H:%M')
-            #print(d)
-            #if(now == d):
+    def short_timer(self):
+        if True:
+        #try:
+            timeout = 1
+            while(not self.t_stop.is_set()):
+                for client in self.clients:
+                    if(self.clients[client]["Shorttimer"] > 0):
+                        logging.debug("%s: -%ds", client, self.clients[client]["Shorttimer"])
+                        self.clients[client]["Shorttimer"] -= timeout
+                    else:
+                        self.clients[client]["Shorttimer"] = 0
+                        old = self.clients[client]["Mode"]
+                        self.clients[client]["Mode"] = "auto"
+                        if(old != self.clients[client]["Mode"]):
+                            logging.info("End of shorttimer %s, resetting mode to auto", client)
 
+
+                self.t_stop.wait(timeout)
+        #except Exception as e:
+        #    logging.error(e)
 
     def timer_operation(self):
         #try:
@@ -323,7 +360,6 @@ class steuerung(threading.Thread):
                         tmp1.append(int(tmp[j]))
                     relais.append(tmp1)
             self.clients = {}
-            i = 0
             for client in clients:
                 self.clients[client] = {}
                 self.clients[client]["Relais"] = relais[i]
@@ -331,7 +367,7 @@ class steuerung(threading.Thread):
                 self.clients[client]["Mode"] = "auto"
                 self.clients[client]["setTemp"] = 0
                 self.clients[client]["isTemp"] = 18
-                i += 1
+                self.clients[client]["Shorttimer"] = 0
             #print(json.dumps(self.clients,indent=4))
             self.polarity = self.config['BASE']['Polarity']
             self.unusedRel = self.config['BASE']['UnusedRel'].split(";")
