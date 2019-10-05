@@ -200,7 +200,6 @@ class steuerung(threading.Thread):
         """ function to determine status of system
 
         """
-        logging.info("Zustand?")
         return(json.dumps(self.clients))
 
     def get_room_mode(self, room):
@@ -223,6 +222,7 @@ class steuerung(threading.Thread):
         try:
             self.clients[room]["Shorttimer"] = int(time)
             self.clients[room]["Mode"] = mode
+            logging.info("Setting shorttimer for room %s to %ds: %s", room, int(time), mode)
             return(json.dumps(self.clients[room]["Shorttimer"]))
         except:
             return('{"answer":"error","command":"Shorttimer"}')
