@@ -336,11 +336,12 @@ class steuerung(threading.Thread):
                 self.check_reset() # Schaut, ob manuelle Modi auf auto zurückgesetzte werden müssen
                 # Schauen, ob die Umwaelzpumpe läuft
                 if(self.get_oekofen_pumpe(self.pelle)):
-                    logging.info("Umwaelzpumpe an")
+                    logging.debug("Umwaelzpumpe an")
                     for client in self.clients:
                         # Hole Wert (on/off) aus Timerfile 
                         self.clients[client]["Timer"] = self.Timer.get_recent_set(client)
-                        # Wenn im auto-Modus und Zusand lt: Timerfile on:
+                        # Wenn im auto-Modus und Zusand lt. Timerfile on:
+                        old = self.clients[client]["Status"]
                         if(self.clients[client]["Mode"] == "auto" and self.clients[client]["Timer"] == "on"):
                             if float(self.clients[client]["normTemp"])  - self.hysterese/2 >= float(self.clients[client]["isTemp"]):  # isTemp < normTemp mit Hysterese -> on
                                 self.clients[client]["Status"] = "on"
@@ -355,9 +356,11 @@ class steuerung(threading.Thread):
                         else:
                             self.clients[client]["Status"] = "off"
                             logging.debug(client + " running in manual mode, setting state to " + self.clients[client]["Status"])
+                        if(old != self.clients[client]["Status"]):
+                            logging.info("State has changed: turning %s %s", client, self.clients[client]["Status"])
                 # Wenn die Umwälzpumpe nicht läuft, alles ausschalten:
                 else:
-                    logging.info("Umwaelzpumpe aus")
+                    logging.debug("Umwaelzpumpe aus")
                     for client in self.clients:
                         self.clients[client]["Status"] = "off"
                         logging.debug("heating pump off, setting "+ client +" state to " + self.clients[client]["Status"])
