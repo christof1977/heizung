@@ -514,10 +514,12 @@ class steuerung(threading.Thread):
                     if GPIO.input(self.pumpe) == self.off:
                         logging.info("Switching pump on")
                     GPIO.output(self.pumpe, self.on)
+                    logging.debug("Pumpenausgang: %s", self.on)
                 else:
                     if GPIO.input(self.pumpe) == self.on:
                         logging.info("Switching pump off")
                     GPIO.output(self.pumpe, self.off)
+                    logging.debug("Pumpenausgang: %s", self.off)
                 self.t_stop.wait(60)
             if self.t_stop.is_set():
                 logging.info("Ausgepumpt")
@@ -534,6 +536,7 @@ class steuerung(threading.Thread):
             for relais in self.clients[client]["Relais"]:
                 logging.debug("Client: %s, Relais: %d: %s", client, relais, val)
                 GPIO.output(relais,val)
+                logging.debug("Ventilausgang %s: %s", relais, val)
  
     def stop(self):
         self.t_stop.set()
