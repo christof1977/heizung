@@ -505,7 +505,7 @@ class steuerung(threading.Thread):
                 if any(state) == self.on: 
                     if GPIO.input(self.pumpe) == self.off:
                         logging.info("Switching pump on")
-                        GPIO.output(self.pumpe, self.on)
+                    GPIO.output(self.pumpe, self.on)
                 else:
                     if GPIO.input(self.pumpe) == self.on:
                         logging.info("Switching pump off")
