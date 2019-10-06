@@ -292,8 +292,7 @@ class steuerung(threading.Thread):
                         self.clients[client]["Mode"] = "auto"
                         if(old != self.clients[client]["Mode"]):
                             logging.info("End of shorttimer %s, resetting mode to auto", client)
-
-
+                #logging.info("Running short_timer")
                 self.t_stop.wait(timeout)
         #except Exception as e:
         #    logging.error(e)
@@ -359,6 +358,7 @@ class steuerung(threading.Thread):
                     for j in range(len(tmp)):
                         tmp1.append(int(tmp[j]))
                     relais.append(tmp1)
+            i = 0
             self.clients = {}
             for client in clients:
                 self.clients[client] = {}
@@ -368,6 +368,7 @@ class steuerung(threading.Thread):
                 self.clients[client]["setTemp"] = 0
                 self.clients[client]["isTemp"] = 18
                 self.clients[client]["Shorttimer"] = 0
+                i += 1
             #print(json.dumps(self.clients,indent=4))
             self.polarity = self.config['BASE']['Polarity']
             self.unusedRel = self.config['BASE']['UnusedRel'].split(";")
@@ -476,6 +477,7 @@ class steuerung(threading.Thread):
             logging.error(e)
 
     def hw_state(self): #OK
+        logging.info("Running hw_state")
         #logging.info("hw_state setting values " + str(self.state), logging)
         for client in self.clients:
             if self.clients[client]["Status"] == "on":
@@ -483,6 +485,7 @@ class steuerung(threading.Thread):
             else:
                 val = self.off
             for relais in self.clients[client]["Relais"]:
+                logging.info("Client: %s, Relais: %d: %s", client, relais, val)
                 GPIO.output(relais,val)
  
     def stop(self):
