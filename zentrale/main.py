@@ -233,6 +233,7 @@ class steuerung(threading.Thread):
         """
         try:
             self.clients[room]["Shorttimer"] = int(time)
+            self.clients[room]["ShorttimerMode"] = "run"
             self.clients[room]["Mode"] = mode
             logging.info("Setting shorttimer for room %s to %ds: %s", room, int(time), mode)
             self.hw_state()
@@ -314,11 +315,12 @@ class steuerung(threading.Thread):
             timeout = 1
             while(not self.t_stop.is_set()):
                 for client in self.clients:
-                    if(self.clients[client]["Shorttimer"] > 0):
-                        logging.debug("%s: -%ds", client, self.clients[client]["Shorttimer"])
+                    if(self.clients[client]["Shorttimer"] > 0 and self.clients[client]["ShorttimerMode"] == "run"):
+                        #logging.debug("%s: -%ds", client, self.clients[client]["Shorttimer"])
                         self.clients[client]["Shorttimer"] -= timeout
                     else:
                         self.clients[client]["Shorttimer"] = 0
+                        self.clients[client]["ShorttimerMode"] = "off"
                         old = self.clients[client]["Mode"]
                         self.clients[client]["Mode"] = "auto"
                         if(old != self.clients[client]["Mode"]):
@@ -353,9 +355,12 @@ class steuerung(threading.Thread):
                             self.clients[client]["Status"] = "on"
                             logging.debug(client + " running in manual mode, setting state to " + self.clients[client]["Status"])
                         # Im manuellen Modus, Zustand off:
-                        else:
+                        elif(self.clients[client]["Mode"] == "off"):
                             self.clients[client]["Status"] = "off"
                             logging.debug(client + " running in manual mode, setting state to " + self.clients[client]["Status"])
+                        else:
+                            self.clients[client]["Status"] = "off"
+                            logging.debug(client + " running in auto mode, setting state to " + self.clients[client]["Status"])
                         if(old != self.clients[client]["Status"]):
                             logging.info("State has changed: turning %s %s", client, self.clients[client]["Status"])
                 # Wenn die Umwälzpumpe nicht läuft, alles ausschalten:
@@ -409,6 +414,7 @@ class steuerung(threading.Thread):
                 self.clients[client]["normTemp"] = 21
                 self.clients[client]["isTemp"] = 18
                 self.clients[client]["Shorttimer"] = 0
+                self.clients[client]["ShorttimerMode"] = "off"
                 self.clients[client]["Timer"] = "off"
                 i += 1
             #print(json.dumps(self.clients,indent=4))
@@ -501,8 +507,10 @@ class steuerung(threading.Thread):
                 state = []
                 for client in self.clients:
                     state.append(self.clients[client]["Status"])
+                logging.debug("State for pump: %s", state)
                 # Check, if any of the outputs is switched to on, if yes, activate pump
-                if any(state) == self.on: 
+                if(any(st == "on" for st in state)):
+                    logging.debug("Irgendeiner ist on")
                     if GPIO.input(self.pumpe) == self.off:
                         logging.info("Switching pump on")
                     GPIO.output(self.pumpe, self.on)
