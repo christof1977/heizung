@@ -73,7 +73,7 @@ class timer(object):
                 timer_list[d] = [times_sorted,temps]
         return(timer_list)
 
-    def get_recent_temp(self, room):
+    def get_recent_set(self, room):
         if not self.check_room(room):
             return(-1)
         now = datetime.datetime.now()
@@ -93,15 +93,15 @@ class timer(object):
 def main():
        
     #clients = ["K", "BadEG", "WZ", "SZ", "AZ"]
-    jsonfile = "settings/timer.json"
+    jsonfile = "settings/_timer.json"
     Timer = timer(jsonfile)
     rooms = Timer.get_rooms()
     room = "WZ"
     #Timer.check_room(room)
 
-    #timer_list = Timer.get_timer_list(room)
-    print(Timer.get_recent_temp(room))
-    print(Timer.get_recent_temp("gn"))
+    timer_list = Timer.get_timer_list(room)
+    print(timer_list)
+    print(Timer.get_recent_set(room))
 
 if __name__ == "__main__":
     main()

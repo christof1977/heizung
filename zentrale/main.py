@@ -20,9 +20,9 @@ import logging
 
 # TODO
 # - Integration Ist-Temperatur
-# - Manueller Betrieb
+# - Reload Timer file
+# - Absenktemperatur
 # - Sauberes Beenden
-# - Mode reset
 # - Mysql extern
 # - Datenbank-logging
 
@@ -123,7 +123,8 @@ class steuerung(threading.Thread):
         data = data.decode()
         try:
             jcmd = json.loads(data)
-            logging.debug(jcmd['command'])
+            #logging.debug(jcmd['command'])
+            logging.debug(jcmd)
         except:
             logging.warning("Das ist mal kein JSON, pff!")
             ret = json.dumps({"answer": "Kaa JSON Dings!"})
@@ -149,8 +150,11 @@ class steuerung(threading.Thread):
         elif(jcmd['command'] == "getRoomShortTimer"):
             ret = self.get_room_shorttimer(jcmd['Room'])
         elif(jcmd['command'] == "setRoomShortTimer"):
-            logging.debug(jcmd)
             ret = self.set_room_shorttimer(jcmd['Room'],jcmd['Time'],jcmd['Mode'])
+        elif(jcmd['command'] == "getRoomNormTemp"):
+            ret = self.get_room_norm_temp(jcmd['Room'])
+        elif(jcmd['command'] == "setRoomNormTemp"):
+            ret = self.set_room_norm_temp(jcmd['Room'],jcmd['normTemp'])
         else:
              ret = json.dumps({"answer":"Fehler","Wert":"Kein gültiges Kommando"})
         logging.debug(ret)
@@ -217,9 +221,16 @@ class steuerung(threading.Thread):
         return(json.dumps({"answer":"setRoomMode","room":room,"mode":self.clients[room]["Mode"]}))
 
     def get_room_shorttimer(self, room):
+        """ Returns value of room's shorttimer to overrider Mode settings for a defined time in seconds
+
+        """
         return(json.dumps(self.clients[room]["Shorttimer"]))
 
     def set_room_shorttimer(self, room, time, mode):
+        """ Sets value of room's shorttimer, sets mode accordingly
+        After setting, hw_state is called to apply change immediately
+
+        """
         try:
             self.clients[room]["Shorttimer"] = int(time)
             self.clients[room]["Mode"] = mode
@@ -229,6 +240,24 @@ class steuerung(threading.Thread):
         except:
             return('{"answer":"error","command":"Shorttimer"}')
 
+    def get_room_norm_temp(self, room):
+        """ Returns normal set temperature of room 
+        Normal temperature is the value when in on-mode
+
+        """
+        return(json.dumps({"room" : room, "normTemp" : self.clients[room]["normTemp"]}))
+
+    def set_room_norm_temp(self, room, temp):
+        """ Sets normal set temperature of room 
+        Normal temperature is the value when in on-mode
+
+        """
+        try:
+            self.clients[room]["normTemp"] = float(temp)
+            logging.info("Setting normTemp for room %s to %s°C", room, temp)
+            return(json.dumps({"room" : room, "normTemp" : self.clients[room]["normTemp"]}))
+        except:
+            return('{"answer":"error","command":"setRoomNormTemp"}')
 
     def mysql_start(self):
         self.mysql_success = False
@@ -304,23 +333,29 @@ class steuerung(threading.Thread):
         #try:
             logging.info("Starting Timeroperationthread as " + threading.currentThread().getName())
             while(not self.t_stop.is_set()):
-                self.check_reset()
+                self.check_reset() # Schaut, ob manuelle Modi auf auto zurückgesetzte werden müssen
+                # Schauen, ob die Umwaelzpumpe läuft
                 if(self.get_oekofen_pumpe(self.pelle)):
                     logging.info("Umwaelzpumpe an")
                     for client in self.clients:
-                        if(self.clients[client]["Mode"] == "auto"):
-                            self.clients[client]["setTemp"] = self.Timer.get_recent_temp(client)
-                            if float(self.clients[client]["setTemp"])  - self.hysterese/2 >= float(self.clients[client]["isTemp"]):  # mit Hysterese
+                        # Hole Wert (on/off) aus Timerfile 
+                        self.clients[client]["Timer"] = self.Timer.get_recent_set(client)
+                        # Wenn im auto-Modus und Zusand lt: Timerfile on:
+                        if(self.clients[client]["Mode"] == "auto" and self.clients[client]["Timer"] == "on"):
+                            if float(self.clients[client]["normTemp"])  - self.hysterese/2 >= float(self.clients[client]["isTemp"]):  # isTemp < normTemp mit Hysterese -> on
                                 self.clients[client]["Status"] = "on"
-                            elif float(self.clients[client]["setTemp"]) + self.hysterese/2 <= float(self.clients[client]["isTemp"]):  # mit Hysterese
+                            elif float(self.clients[client]["normTemp"]) + self.hysterese/2 <= float(self.clients[client]["isTemp"]):  # isTemp > normTemp mit Hysteres -> off
                                 self.clients[client]["Status"] = "off"
                             logging.debug(client + " running in auto mode, setting state to " + self.clients[client]["Status"])
+                        # Im manuellen Modus, Zustand on:
                         elif(self.clients[client]["Mode"] == "on"):
                             self.clients[client]["Status"] = "on"
                             logging.debug(client + " running in manual mode, setting state to " + self.clients[client]["Status"])
+                        # Im manuellen Modus, Zustand off:
                         else:
                             self.clients[client]["Status"] = "off"
                             logging.debug(client + " running in manual mode, setting state to " + self.clients[client]["Status"])
+                # Wenn die Umwälzpumpe nicht läuft, alles ausschalten:
                 else:
                     logging.info("Umwaelzpumpe aus")
                     for client in self.clients:
@@ -368,9 +403,10 @@ class steuerung(threading.Thread):
                 self.clients[client]["Relais"] = relais[i]
                 self.clients[client]["Status"] = "off"
                 self.clients[client]["Mode"] = "auto"
-                self.clients[client]["setTemp"] = 0
+                self.clients[client]["normTemp"] = 21
                 self.clients[client]["isTemp"] = 18
                 self.clients[client]["Shorttimer"] = 0
+                self.clients[client]["Timer"] = "off"
                 i += 1
             #print(json.dumps(self.clients,indent=4))
             self.polarity = self.config['BASE']['Polarity']
@@ -521,7 +557,7 @@ class steuerung(threading.Thread):
                     try:
                         idx = self.clients.index(msg_spl[0])
                         self.isTemp[idx] = msg_spl[2]
-                        self.setTemp[idx] = msg_spl[1]
+                        self.normTemp[idx] = msg_spl[1]
                         answer = 'Client OK'
                         #print(self.sensors)
                         #print(msg_spl[0])
@@ -551,11 +587,11 @@ class steuerung(threading.Thread):
                 #print("Aktuelle Temperaturen: ")
                 #for i in self.isTemp:
                 #    print(i)
-                #print(self.setTemp)
+                #print(self.normTemp)
                 #for i in range(len(self.clients)):
                     #print(i)
                 #    for j in range(len(self.relais[i])):
-                #        if self.setTemp[i]<=self.isTemp[i]:
+                #        if self.normTemp[i]<=self.isTemp[i]:
                 #            #print(relais[i][j])
                 #            GPIO.output(self.relais[i][j], 0)
                 #        else:
