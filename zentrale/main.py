@@ -28,6 +28,7 @@ import logging
 
 udp_port = 5005
 logging.basicConfig(level=logging.INFO)
+#logging.basicConfig(level=logging.DEBUG)
 
 
 class steuerung(threading.Thread):
@@ -223,6 +224,7 @@ class steuerung(threading.Thread):
             self.clients[room]["Shorttimer"] = int(time)
             self.clients[room]["Mode"] = mode
             logging.info("Setting shorttimer for room %s to %ds: %s", room, int(time), mode)
+            self.hw_state()
             return(json.dumps(self.clients[room]["Shorttimer"]))
         except:
             return('{"answer":"error","command":"Shorttimer"}')
@@ -292,6 +294,7 @@ class steuerung(threading.Thread):
                         self.clients[client]["Mode"] = "auto"
                         if(old != self.clients[client]["Mode"]):
                             logging.info("End of shorttimer %s, resetting mode to auto", client)
+                            self.hw_state()
                 #logging.info("Running short_timer")
                 self.t_stop.wait(timeout)
         #except Exception as e:
@@ -477,7 +480,7 @@ class steuerung(threading.Thread):
             logging.error(e)
 
     def hw_state(self): #OK
-        logging.info("Running hw_state")
+        logging.debug("Running hw_state")
         #logging.info("hw_state setting values " + str(self.state), logging)
         for client in self.clients:
             if self.clients[client]["Status"] == "on":
@@ -485,7 +488,7 @@ class steuerung(threading.Thread):
             else:
                 val = self.off
             for relais in self.clients[client]["Relais"]:
-                logging.info("Client: %s, Relais: %d: %s", client, relais, val)
+                logging.debug("Client: %s, Relais: %d: %s", client, relais, val)
                 GPIO.output(relais,val)
  
     def stop(self):
