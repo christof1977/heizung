@@ -511,8 +511,6 @@ class steuerung(threading.Thread):
                         logging.info("Switching pump off")
                     GPIO.output(self.pumpe, self.off)
                 self.t_stop.wait(60)
-                logging.info("Pumpenloop: Pumpe= "+ str(GPIO.input(self.pumpe)) + " State= " + str(state))
-                pass
             if self.t_stop.is_set():
                 logging.info("Ausgepumpt")
         except Exception as e:
@@ -520,7 +518,6 @@ class steuerung(threading.Thread):
 
     def hw_state(self): #OK
         logging.debug("Running hw_state")
-        #logging.info("hw_state setting values " + str(self.state), logging)
         for client in self.clients:
             if self.clients[client]["Status"] == "on":
                 val = self.on
@@ -542,7 +539,6 @@ class steuerung(threading.Thread):
             logging.info("Switching BMC " + str(self.pumpe) + " off")
         GPIO.cleanup()
         self.mysql_close()
-        #print(threading.enumerate())
         exit()
 
 
