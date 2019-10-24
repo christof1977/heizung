@@ -72,6 +72,11 @@ class timer(object):
             for d in dow:
                 timer_list[d] = [times_sorted,temps]
         return(timer_list)
+    
+    def get_all_timer_list(self):
+        for client in self.tl:
+            print(json.dumps(self.tl[client]["settings"],indent=4))
+        return(self.tl)
 
     def get_recent_set(self, room):
         if not self.check_room(room):
@@ -93,15 +98,17 @@ class timer(object):
 def main():
        
     #clients = ["K", "BadEG", "WZ", "SZ", "AZ"]
-    jsonfile = "settings/_timer.json"
+    jsonfile = "settings/timer.json"
     Timer = timer(jsonfile)
     rooms = Timer.get_rooms()
     room = "WZ"
     #Timer.check_room(room)
 
-    timer_list = Timer.get_timer_list(room)
-    print(timer_list)
-    print(Timer.get_recent_set(room))
+    #timer_list = Timer.get_timer_list(room)
+    #print(timer_list)
+    #print(Timer.get_recent_set(room))
+    Timer.get_all_timer_list()
+    
 
 if __name__ == "__main__":
     main()

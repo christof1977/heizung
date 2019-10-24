@@ -25,6 +25,7 @@ import logging
 # - Sauberes Beenden
 # - Mysql extern
 # - Datenbank-logging
+# - Logeintrag, wenn Ventile geschlossen werden, weil die Umwälzpumpe aus geht
 
 udp_port = 5005
 logging.basicConfig(level=logging.INFO)
@@ -393,6 +394,7 @@ class steuerung(threading.Thread):
             self.baseport = int(self.config['BASE']['Port'])
             self.hysterese = float(self.config['BASE']['Hysterese'])
             clients = self.config['BASE']['Clients'].split(";")
+            names = self.config['BASE']['Names'].split(";")
             self.sensors = self.config['BASE']['Sensors'].split(";")
             self.sensor_ids = self.config['BASE']['Sensor_IDs'].split(";")
             self.pumpe = int(self.config['BASE']['Pumpe'])
@@ -416,6 +418,7 @@ class steuerung(threading.Thread):
                 self.clients[client]["Shorttimer"] = 0
                 self.clients[client]["ShorttimerMode"] = "off"
                 self.clients[client]["Timer"] = "off"
+                self.clients[client]["Name"] = names[i]
                 i += 1
             #print(json.dumps(self.clients,indent=4))
             self.polarity = self.config['BASE']['Polarity']
