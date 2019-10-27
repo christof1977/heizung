@@ -140,6 +140,8 @@ class steuerung(threading.Thread):
             ret = self.get_timer(jcmd['Room'])
         elif(jcmd['command'] == "setTimer"):
             ret = self.set_timer(jcmd['Room'])
+        elif(jcmd['command'] == "reloadTimer"):
+            ret = self.reload_timer()
         elif(jcmd['command'] == "getRoomStatus"):
             ret = self.get_room_status(jcmd['Room'])
         elif(jcmd['command'] == "setRoomStatus"):
@@ -194,6 +196,13 @@ class steuerung(threading.Thread):
 
     def set_timer(self, room):
         return()
+
+    def reload_timer(self):
+        """ This function reloads the timer file
+
+        """
+        self.Timer = timer(self.timerfile)
+        return(json.dumps({"answer":"Timer file reloaded"}))
 
     def get_alive(self):
         """ function to see, if we are alive
