@@ -46,8 +46,11 @@
  "BadEG":{
  "room":"Bad",
  "settings":{
-	 "Mo-Fr":{
+	  "Di,Do,Fr":{
 		 "5:45":"on",
+		 "22:30":"off"},
+	  "Mo,Mi":{
+		 "7:00":"on",
 		 "22:30":"off"},
 	  "Sa-So":{
 		  "8:00":"on",
