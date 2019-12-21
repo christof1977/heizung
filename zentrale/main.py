@@ -27,7 +27,7 @@ import logging
 # - Logeintrag, wenn Ventile geschlossen werden, weil die Umwälzpumpe aus geht
 
 udp_port = 5005
-logging.basicConfig(level=logging.INFO
+logging.basicConfig(level=logging.INFO)
 #logging.basicConfig(level=logging.DEBUG)
 
 
