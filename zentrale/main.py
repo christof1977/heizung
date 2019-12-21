@@ -20,7 +20,6 @@ import logging
 
 # TODO
 # - Integration Ist-Temperatur
-# - Reload Timer file
 # - Absenktemperatur
 # - Sauberes Beenden
 # - Mysql extern
@@ -89,7 +88,7 @@ class steuerung(threading.Thread):
         while(not self.t_stop.is_set()):
             try:
                 data, addr = self.udpSock.recvfrom( 1024 )# Puffer-Groesse ist 1024 Bytes.
-                logging.debug("Kimm ja scho")
+                #logging.debug("Kimm ja scho")
                 ret = self.parseCmd(data) # Abfrage der Fernbedienung (UDP-Server), der Rest passiert per Interrupt/Event
                 self.udpSock.sendto(str(ret).encode('utf-8'), addr)
             except Exception as e:
@@ -125,7 +124,7 @@ class steuerung(threading.Thread):
         try:
             jcmd = json.loads(data)
             #logging.debug(jcmd['command'])
-            logging.debug(jcmd)
+            #logging.debug(jcmd)
         except:
             logging.warning("Das ist mal kein JSON, pff!")
             ret = json.dumps({"answer": "Kaa JSON Dings!"})
@@ -160,7 +159,7 @@ class steuerung(threading.Thread):
             ret = self.set_room_norm_temp(jcmd['Room'],jcmd['normTemp'])
         else:
              ret = json.dumps({"answer":"Fehler","Wert":"Kein gültiges Kommando"})
-        logging.debug(ret)
+        #logging.debug(ret)
         return(ret)
 
     def get_rooms(self):
@@ -245,6 +244,9 @@ class steuerung(threading.Thread):
             self.clients[room]["Shorttimer"] = int(time)
             self.clients[room]["ShorttimerMode"] = "run"
             self.clients[room]["Mode"] = mode
+            if(mode in ["on", "off"]):
+                logging.debug("Mode: %s", mode)
+                self.clients[room]["Status"] = mode
             logging.info("Setting shorttimer for room %s to %ds: %s", room, int(time), mode)
             self.hw_state()
             return(json.dumps(self.clients[room]["Shorttimer"]))
