@@ -27,7 +27,7 @@ import logging
 # - Logeintrag, wenn Ventile geschlossen werden, weil die Umwälzpumpe aus geht
 
 udp_port = 5005
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO
 #logging.basicConfig(level=logging.DEBUG)
 
 
@@ -237,18 +237,15 @@ class steuerung(threading.Thread):
 
     def set_room_shorttimer(self, room, time, mode):
         """ Sets value of room's shorttimer, sets mode accordingly
-        After setting, hw_state is called to apply change immediately
+        After setting, set_status is called to apply change immediately
 
         """
         try:
             self.clients[room]["Shorttimer"] = int(time)
             self.clients[room]["ShorttimerMode"] = "run"
             self.clients[room]["Mode"] = mode
-            if(mode in ["on", "off"]):
-                logging.debug("Mode: %s", mode)
-                self.clients[room]["Status"] = mode
             logging.info("Setting shorttimer for room %s to %ds: %s", room, int(time), mode)
-            self.hw_state()
+            self.set_status()
             return(json.dumps(self.clients[room]["Shorttimer"]))
         except:
             return('{"answer":"error","command":"Shorttimer"}')
@@ -344,49 +341,12 @@ class steuerung(threading.Thread):
         #    logging.error(e)
 
     def timer_operation(self):
-        #try:
-            logging.info("Starting Timeroperationthread as " + threading.currentThread().getName())
-            while(not self.t_stop.is_set()):
-                self.check_reset() # Schaut, ob manuelle Modi auf auto zurückgesetzte werden müssen
-                # Schauen, ob die Umwaelzpumpe läuft
-                if(self.get_oekofen_pumpe(self.pelle)):
-                    logging.debug("Umwaelzpumpe an")
-                    for client in self.clients:
-                        # Hole Wert (on/off) aus Timerfile 
-                        self.clients[client]["Timer"] = self.Timer.get_recent_set(client)
-                        # Wenn im auto-Modus und Zusand lt. Timerfile on:
-                        old = self.clients[client]["Status"]
-                        if(self.clients[client]["Mode"] == "auto" and self.clients[client]["Timer"] == "on"):
-                            if float(self.clients[client]["normTemp"])  - self.hysterese/2 >= float(self.clients[client]["isTemp"]):  # isTemp < normTemp mit Hysterese -> on
-                                self.clients[client]["Status"] = "on"
-                            elif float(self.clients[client]["normTemp"]) + self.hysterese/2 <= float(self.clients[client]["isTemp"]):  # isTemp > normTemp mit Hysteres -> off
-                                self.clients[client]["Status"] = "off"
-                            logging.debug(client + " running in auto mode, setting state to " + self.clients[client]["Status"])
-                        # Im manuellen Modus, Zustand on:
-                        elif(self.clients[client]["Mode"] == "on"):
-                            self.clients[client]["Status"] = "on"
-                            logging.debug(client + " running in manual mode, setting state to " + self.clients[client]["Status"])
-                        # Im manuellen Modus, Zustand off:
-                        elif(self.clients[client]["Mode"] == "off"):
-                            self.clients[client]["Status"] = "off"
-                            logging.debug(client + " running in manual mode, setting state to " + self.clients[client]["Status"])
-                        else:
-                            self.clients[client]["Status"] = "off"
-                            logging.debug(client + " running in auto mode, setting state to " + self.clients[client]["Status"])
-                        if(old != self.clients[client]["Status"]):
-                            logging.info("State has changed: turning %s %s", client, self.clients[client]["Status"])
-                # Wenn die Umwälzpumpe nicht läuft, alles ausschalten:
-                else:
-                    logging.debug("Umwaelzpumpe aus")
-                    for client in self.clients:
-                        self.clients[client]["Status"] = "off"
-                        logging.debug("heating pump off, setting "+ client +" state to " + self.clients[client]["Status"])
-                self.hw_state()
-                self.t_stop.wait(60)
-            if self.t_stop.is_set():
-                logging.info("Ausgetimed!")
-        #except Exception as e:
-        #    logging.info(e)
+        logging.info("Starting Timeroperationthread as " + threading.currentThread().getName())
+        while(not self.t_stop.is_set()):
+            self.set_status()
+            self.t_stop.wait(60)
+        if self.t_stop.is_set():
+            logging.info("Ausgetimed!")
 
     def read_config(self):
         if True:
@@ -539,6 +499,48 @@ class steuerung(threading.Thread):
                 logging.info("Ausgepumpt")
         except Exception as e:
             logging.error(e)
+            
+    def set_status(self):
+        logging.debug("Running set_status")
+        self.check_reset() # Schaut, ob manuelle Modi auf auto zurückgesetzte werden müssen
+        # Schauen, ob die Umwaelzpumpe läuft
+        if(self.get_oekofen_pumpe(self.pelle)):
+            logging.debug("Umwaelzpumpe an")
+            for client in self.clients:
+                # Hole Wert (on/off) aus Timerfile 
+                self.clients[client]["Timer"] = self.Timer.get_recent_set(client)
+                # Wenn im auto-Modus und Zusand lt. Timerfile on:
+                old = self.clients[client]["Status"]
+                if(self.clients[client]["Mode"] == "auto" and self.clients[client]["Timer"] == "on"):
+                    # isTemp < normTemp mit Hysterese -> on
+                    if float(self.clients[client]["normTemp"])  - self.hysterese/2 >= float(self.clients[client]["isTemp"]):
+                        self.clients[client]["Status"] = "on"
+                    # isTemp > normTemp mit Hysteres -> off
+                    elif float(self.clients[client]["normTemp"]) + self.hysterese/2 <= float(self.clients[client]["isTemp"]):
+                        self.clients[client]["Status"] = "off"
+                        logging.debug(client + " running in auto mode, setting state to " + self.clients[client]["Status"])
+                # Im manuellen Modus, Zustand on:
+                elif(self.clients[client]["Mode"] == "on"):
+                    self.clients[client]["Status"] = "on"
+                    logging.debug(client + " running in manual mode, setting state to " + self.clients[client]["Status"])
+                # Im manuellen Modus, Zustand off:
+                elif(self.clients[client]["Mode"] == "off"):
+                    self.clients[client]["Status"] = "off"
+                    logging.debug(client + " running in manual mode, setting state to " + self.clients[client]["Status"])
+                else:
+                    self.clients[client]["Status"] = "off"
+                    logging.debug(client + " running in auto mode, setting state to " + self.clients[client]["Status"])
+                if(old != self.clients[client]["Status"]):
+                    logging.info("State has changed: turning %s %s", client, self.clients[client]["Status"])
+        # Wenn die Umwälzpumpe nicht läuft, alles ausschalten:
+        else:
+            logging.debug("Umwaelzpumpe aus")
+            for client in self.clients:
+                self.clients[client]["Status"] = "off"
+                logging.debug("heating pump off, setting "+ client +" state to " + self.clients[client]["Status"])
+        self.hw_state()
+
+
 
     def hw_state(self): #OK
         logging.debug("Running hw_state")
