@@ -10,6 +10,7 @@ import json
 from timer import timer
 import syslog
 from libby import tempsensors
+from libby import remote
 import mysql.connector
 import threading
 from threading import Thread
@@ -27,6 +28,8 @@ import logging
 # - Logeintrag, wenn Ventile geschlossen werden, weil die Umwälzpumpe aus geht
 
 udp_port = 5005
+server = "dose"
+port = 6663
 logging.basicConfig(level=logging.INFO)
 #logging.basicConfig(level=logging.DEBUG)
 
@@ -103,13 +106,12 @@ class steuerung(threading.Thread):
         Retries, if no response
 
         """
+
         ret = -1
         while(ret == -1):
             try:
-                 with urllib.request.urlopen(pelle) as response:
-                     mydata = response.read()
-                     d = json.loads(mydata.decode())
-                     ret = d["hk1"]["L_pump"]
+                json_string = '{"command" : "getUmwaelzpumpe"}'
+                ret = remote.udpRemote(json_string, addr=server, port=port)["answer"]
             except:
                 ret = -1
                 time.sleep(1)
