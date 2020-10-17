@@ -17,14 +17,10 @@ import urllib
 import urllib.request
 import logging
 
-
 # TODO
 # - Integration Ist-Temperatur
 # - Absenktemperatur
 # - Sauberes Beenden
-# - Mysql extern
-# - Datenbank-logging
-# - Logeintrag, wenn Ventile geschlossen werden, weil die Umwälzpumpe aus geht
 
 udp_port = 5005
 server = "dose"
@@ -39,9 +35,7 @@ class steuerung(threading.Thread):
         logging.info("Starting Steuerungthread as " + threading.currentThread().getName())
         self.t_stop = threading.Event()
         self.read_config()
-        self.sensor_values = [18.5]
-        for i in range(len(self.sensors)-1):
-                self.sensor_values.append(18.5)
+        self.sensor_values = {} 
         self.system = {"ModeReset":"2:00"}
         logging.info("Starting UDP-Server at " + self.basehost + ":" + str(self.baseport))
         self.e_udp_sock = socket.socket( socket.AF_INET,  socket.SOCK_DGRAM )
@@ -58,14 +52,13 @@ class steuerung(threading.Thread):
         pumpT.setDaemon(True)
         pumpT.start()
 
-        timerT = threading.Thread(target=self.short_timer)
-        timerT.setDaemon(True)
-        timerT.start()
+        shortTimerT = threading.Thread(target=self.short_timer)
+        shortTimerT.setDaemon(True)
+        shortTimerT.start()
 
         timerT = threading.Thread(target=self.timer_operation)
         timerT.setDaemon(True)
         timerT.start()
-        #threading.Thread(target=self.log_state).start()
         self.udpServer()
         self.broadcast_value()
 
@@ -309,68 +302,61 @@ class steuerung(threading.Thread):
             logging.info("Ausgetimed!")
 
     def read_config(self):
-        if True:
-        #try:
-            self.hostname = socket.gethostname()
-            self.basehost = self.hostname + '.local'
-            realpath = os.path.realpath(__file__)
-            basepath = os.path.split(realpath)[0]
-            setpath = os.path.join(basepath, 'settings')
-            inifile = os.path.join(setpath, self.hostname + '.ini')
+        self.hostname = socket.gethostname()
+        self.basehost = self.hostname + '.local'
+        realpath = os.path.realpath(__file__)
+        basepath = os.path.split(realpath)[0]
+        setpath = os.path.join(basepath, 'settings')
+        inifile = os.path.join(setpath, self.hostname + '.ini')
 
-            self.config = configparser.ConfigParser()
-            logging.info("Loading " + inifile)
-            self.config.read(inifile)
+        self.config = configparser.ConfigParser()
+        logging.info("Loading " + inifile)
+        self.config.read(inifile)
 
-            self.baseport = int(self.config['BASE']['Port'])
-            self.hysterese = float(self.config['BASE']['Hysterese'])
-            clients = self.config['BASE']['Clients'].split(";")
-            names = self.config['BASE']['Names'].split(";")
-            self.sensors = self.config['BASE']['Sensors'].split(";")
-            self.name = self.config['BASE']['Name']
-            self.sensor_ids = self.config['BASE']['Sensor_IDs'].split(";")
-            self.pumpe = int(self.config['BASE']['Pumpe'])
-            relais_tmp = self.config['BASE']['Relais'].split(";")
-            relais = []
-            for i in range(len(relais_tmp)):
-                    tmp = (relais_tmp[i].split(","))
-                    tmp1 = []
-                    for j in range(len(tmp)):
-                        tmp1.append(int(tmp[j]))
-                    relais.append(tmp1)
-            i = 0
-            self.clients = {}
-            for client in clients:
-                self.clients[client] = {}
-                self.clients[client]["Relais"] = relais[i]
-                self.clients[client]["Status"] = "off"
-                self.clients[client]["Mode"] = "auto"
-                self.clients[client]["normTemp"] = 21
-                self.clients[client]["isTemp"] = 18
-                self.clients[client]["Shorttimer"] = 0
-                self.clients[client]["ShorttimerMode"] = "off"
-                self.clients[client]["Timer"] = "off"
-                self.clients[client]["Name"] = names[i]
-                i += 1
-            #print(json.dumps(self.clients,indent=4))
-            self.polarity = self.config['BASE']['Polarity']
-            self.unusedRel = self.config['BASE']['UnusedRel'].split(";")
-            if self.polarity == "invers":
-                self.on = 0
-                self.off = 1
-            else:
-                self.on = 1
-                self.off = 0
-            self.logpath = os.path.join(basepath, 'log')
-            self.timerpath = setpath
-            self.timerfile = os.path.join(setpath, self.config['BASE']['Timerfile'])
-            logging.info(self.timerfile)
+        self.baseport = int(self.config['BASE']['Port'])
+        self.hysterese = float(self.config['BASE']['Hysterese'])
+        clients = self.config['BASE']['Clients'].split(";")
+        names = self.config['BASE']['Names'].split(";")
+        self.sensors = self.config['BASE']['Sensors'].split(";")
+        self.name = self.config['BASE']['Name']
+        self.sensor_ids = self.config['BASE']['Sensor_IDs'].split(";")
+        self.pumpe = int(self.config['BASE']['Pumpe'])
+        relais_tmp = self.config['BASE']['Relais'].split(";")
+        relais = []
+        for i in range(len(relais_tmp)):
+                tmp = (relais_tmp[i].split(","))
+                tmp1 = []
+                for j in range(len(tmp)):
+                    tmp1.append(int(tmp[j]))
+                relais.append(tmp1)
+        i = 0
+        self.clients = {}
+        for client in clients:
+            self.clients[client] = {}
+            self.clients[client]["Relais"] = relais[i]
+            self.clients[client]["Status"] = "off"
+            self.clients[client]["Mode"] = "auto"
+            self.clients[client]["normTemp"] = 21
+            self.clients[client]["isTemp"] = 18
+            self.clients[client]["Shorttimer"] = 0
+            self.clients[client]["ShorttimerMode"] = "off"
+            self.clients[client]["Timer"] = "off"
+            self.clients[client]["Name"] = names[i]
+            i += 1
+        self.polarity = self.config['BASE']['Polarity']
+        self.unusedRel = self.config['BASE']['UnusedRel'].split(";")
+        if self.polarity == "invers":
+            self.on = 0
+            self.off = 1
+        else:
+            self.on = 1
+            self.off = 0
+        self.logpath = os.path.join(basepath, 'log')
+        self.timerpath = setpath
+        self.timerfile = os.path.join(setpath, self.config['BASE']['Timerfile'])
+        logging.info(self.timerfile)
 
-
-        #except:
-        #    logging.error("Configuration error")
-
-    def set_hw(self):  # OK
+    def set_hw(self): 
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)
         for i in self.unusedRel:
@@ -391,6 +377,17 @@ class steuerung(threading.Thread):
         else:
             logging.info("Not using pump")
 
+    def get_sensor_values(self):
+        for sensor in self.sensor_ids:
+            if(sensor in self.w1_slaves):
+                val = self.w1.getValue(sensor)
+                idx = self.sensor_ids.index(sensor)
+                sensor = self.sensors[idx]
+                now = time.strftime('%Y-%m-%d %H:%M:%S')
+                self.sensor_values[sensor] = {}
+                self.sensor_values[sensor]["Value"] = round(val,1)
+                self.sensor_values[sensor]["Timestamp"] = now
+
     def broadcast_value(self):
         self.bcastTstop = threading.Event()
         bcastT = threading.Thread(target=self._broadcast_value)
@@ -404,22 +401,18 @@ class steuerung(threading.Thread):
         udpSock.settimeout(0.1)
         while(not self.bcastTstop.is_set()):
             try:
-                for sensor in self.sensor_ids:
-                    if(sensor in self.w1_slaves):
-                        val = self.w1.getValue(sensor)
-                        idx = self.sensor_ids.index(sensor)
-                        sensor = self.sensors[idx]
-                        now = time.strftime('%Y-%m-%d %H:%M:%S')
-                        message = {"measurement":{sensor:{"Value":0,"Floor":"","Type":"Temperature","Unit":"°C","Timestamp":"","Store":1}}}
-                        message["measurement"][sensor]["Floor"] = self.name
-                        message["measurement"][sensor]["Value"] = round(float(val),1)
-                        message["measurement"][sensor]["Timestamp"] = now
-                        udpSock.sendto(json.dumps(message).encode(),("<broadcast>",udpBcPort))
+                self.get_sensor_values()
+                for sensor in self.sensor_values: 
+                    message = {"measurement":{sensor:{"Value":0,"Floor":"","Type":"Temperature","Unit":"°C","Timestamp":"","Store":1}}}
+                    message["measurement"][sensor]["Floor"] = self.name
+                    message["measurement"][sensor]["Value"] = self.sensor_values[sensor]["Value"]
+                    message["measurement"][sensor]["Timestamp"] = self.sensor_values[sensor]["Timestamp"]
+                    udpSock.sendto(json.dumps(message).encode(),("<broadcast>",udpBcPort))
             except Exception as e:
                 logging.error(str(e))
             self.bcastTstop.wait(20)
 
-    def set_pumpe(self): #OK
+    def set_pumpe(self):
         if(self.pumpe < 1):
             logging.info("Not starting Pumpenthread, no pump present")
             return
@@ -513,13 +506,13 @@ class steuerung(threading.Thread):
             GPIO.output(self.pumpe, self.off)
             logging.info("Switching BMC " + str(self.pumpe) + " off")
         GPIO.cleanup()
-        exit()
+        return
 
     def run(self):
         while True:
             try:
                 time.sleep(.5)
-            except KeyboardInterrupt: # CTRL+C exiti
+            except KeyboardInterrupt: # CTRL+C exit
                 self.stop()
                 break
 
