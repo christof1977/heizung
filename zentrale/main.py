@@ -490,8 +490,6 @@ class steuerung(threading.Thread):
                 logging.debug("heating pump off, setting "+ client +" state to " + self.clients[client]["Status"])
         self.hw_state()
 
-
-
     def hw_state(self): #OK
         logging.debug("Running hw_state")
         for client in self.clients:
@@ -517,60 +515,10 @@ class steuerung(threading.Thread):
         GPIO.cleanup()
         exit()
 
-
-
     def run(self):
         while True:
             try:
-                data, addr = self.e_udp_sock.recvfrom( 1024 )# Puffer-Groesse ist 1024 Bytes. 
-                #print(addr)
-                #print(data.decode('utf-8')) 
-                msg = data.decode('utf-8')
-                msg_spl = msg.split(",")
-                if (msg_spl[0] in self.sensors) or (msg_spl[0] in self.clients):
-                    logging.info(msg_spl[0]+": Soll-Temp: "+msg_spl[1]+" °C, Ist-Temp: "+msg_spl[2]+ "°C")
-                    try:
-                        idx = self.clients.index(msg_spl[0])
-                        self.isTemp[idx] = msg_spl[2]
-                        self.normTemp[idx] = msg_spl[1]
-                        answer = 'Client OK'
-                        #print(self.sensors)
-                        #print(msg_spl[0])
-                        for i in range(len(self.sensors)):
-                            ind = self.sensors[i].find(msg_spl[0])
-                            if ind == 0:
-                                self.sensor_values[i] = msg_spl[2]
-                        #if any(msg_spl[0] in s for s in self.sensors):
-                        #print(s)
-                        self.sensor_values[idx] = msg_spl[2]
-                    except:
-                        pass
-                    try:
-                        idx = self.sensors.index(msg_spl[0])
-                        self.sensor_values[idx] = msg_spl[2]
-                        #print(msg_spl[0])
-                        #print(msg_spl[2])
-                        answer = 'Sensor OK'
-                    except:
-                        pass
-
-
-                else:
-                    answer = 'Wrong Message'
-                self.e_udp_sock.sendto(answer.encode('utf-8'), addr)
-                #print(self.clientsi)
-                #print("Aktuelle Temperaturen: ")
-                #for i in self.isTemp:
-                #    print(i)
-                #print(self.normTemp)
-                #for i in range(len(self.clients)):
-                    #print(i)
-                #    for j in range(len(self.relais[i])):
-                #        if self.normTemp[i]<=self.isTemp[i]:
-                #            #print(relais[i][j])
-                #            GPIO.output(self.relais[i][j], 0)
-                #        else:
-                #            GPIO.output(self.relais[i][j], 1)
+                time.sleep(.5)
             except KeyboardInterrupt: # CTRL+C exiti
                 self.stop()
                 break
