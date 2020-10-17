@@ -11,7 +11,6 @@ from timer import timer
 import syslog
 from libby import tempsensors
 from libby import remote
-import mysql.connector
 import threading
 from threading import Thread
 import urllib
@@ -30,9 +29,9 @@ import logging
 udp_port = 5005
 server = "dose"
 port = 6663
+udpBcPort =  6664
 logging.basicConfig(level=logging.INFO)
 #logging.basicConfig(level=logging.DEBUG)
-
 
 class steuerung(threading.Thread):
     def __init__(self):
@@ -43,13 +42,7 @@ class steuerung(threading.Thread):
         self.sensor_values = [18.5]
         for i in range(len(self.sensors)-1):
                 self.sensor_values.append(18.5)
-        
-        self.mysql_success = False
-        self.mysql_start()
-
         self.system = {"ModeReset":"2:00"}
-
-
         logging.info("Starting UDP-Server at " + self.basehost + ":" + str(self.baseport))
         self.e_udp_sock = socket.socket( socket.AF_INET,  socket.SOCK_DGRAM )
         self.e_udp_sock.bind( (self.basehost,self.baseport) ) 
@@ -74,6 +67,7 @@ class steuerung(threading.Thread):
         timerT.start()
         #threading.Thread(target=self.log_state).start()
         self.udpServer()
+        self.broadcast_value()
 
     def udpServer(self):
         logging.info("Starting UDP-Server at " + self.basehost + ":" + str(udp_port))
@@ -101,7 +95,7 @@ class steuerung(threading.Thread):
                 except Exception as o:
                     logging.warning("Uiui, beim UDP senden/empfangen hat's richtig kracht!" + str(o))
 
-    def get_oekofen_pumpe(self, pelle):
+    def get_oekofen_pumpe(self):
         """ Get status from Oekofen heating pump
         Retries, if no response
 
@@ -271,42 +265,6 @@ class steuerung(threading.Thread):
         except:
             return('{"answer":"error","command":"setRoomNormTemp"}')
 
-    def mysql_start(self):
-        self.mysql_success = False
-        try:
-            self.cnx = mysql.connector.connect(user=self.mysqluser, password=self.mysqlpass,host=self.mysqlserv,database=self.mysqldb)
-            self.cursor = self.cnx.cursor()
-            self.mysql_success = True
-            logging.info("Database connection established")
-        except Exception as e:
-            try:
-                self.mysql_success = False
-                logging.info("Database connection error")
-                self.cnx.disconnect()
-            except Exception as e:
-                pass
-
-    def mysql_close(self):
-        if self.mysql_success == True:
-            self.cursor.close()
-
-    def mysql_write(self, now, parameter, value):
-        if self.mysql_success == True:
-            add = ("INSERT INTO messwert " 
-                    "(datetime, parameter, value) "
-                    "VALUES (%s, %s, %s)")
-            data = (now, parameter, value)
-            try:
-                self.cursor.execute(add, data)
-                mess_id = self.cursor.lastrowid
-                self.cnx.commit()
-                return mess_id
-            except Exception as e:
-                logging.info("Fehler beim Schreiben in die Datenbank")
-                self.mysql_start()
-        else:
-            self.mysql_start()
-
     def check_reset(self):
         if(self.system["ModeReset"]!="off"):
             now = datetime.datetime.now()
@@ -369,6 +327,7 @@ class steuerung(threading.Thread):
             clients = self.config['BASE']['Clients'].split(";")
             names = self.config['BASE']['Names'].split(";")
             self.sensors = self.config['BASE']['Sensors'].split(";")
+            self.name = self.config['BASE']['Name']
             self.sensor_ids = self.config['BASE']['Sensor_IDs'].split(";")
             self.pumpe = int(self.config['BASE']['Pumpe'])
             relais_tmp = self.config['BASE']['Relais'].split(";")
@@ -404,11 +363,6 @@ class steuerung(threading.Thread):
                 self.off = 0
             self.logpath = os.path.join(basepath, 'log')
             self.timerpath = setpath
-            self.mysqluser = self.config['BASE']['Mysqluser']
-            self.mysqlpass = self.config['BASE']['Mysqlpass']
-            self.mysqlserv = self.config['BASE']['Mysqlserv']
-            self.mysqldb = self.config['BASE']['Mysqldb']
-            self.pelle = self.config['BASE']['Pelle']
             self.timerfile = os.path.join(setpath, self.config['BASE']['Timerfile'])
             logging.info(self.timerfile)
 
@@ -436,40 +390,34 @@ class steuerung(threading.Thread):
             logging.info("Setting BMC " + str(self.pumpe) + " as output")
         else:
             logging.info("Not using pump")
- 
-    def log_state(self):
-        try:
-            logging.info("Starting Logthread as " + threading.currentThread().getName())
-            while(not self.t_stop.is_set()):
 
-                logging.info("Sensor Values: " + str(self.sensor_values))
-                logging.info("isTemp: " + str(self.isTemp))
-                self.t_stop.wait(58)
-                now = time.strftime('%Y-%m-%d %H:%M:%S')
-                for idx in range(len(self.sensor_ids)):
-                    if self.sensor_ids[idx].find("28-") == 0:
-                        try:
-                            self.sensor_values[idx] = self.w1.getValue(self.sensor_ids[idx])
-                        except:
-                            logging.info("Reading w1 sensor failed")
-                for i in range(len(self.sensors)):
-                    self.mysql_write(now, self.sensors[i], float(self.sensor_values[i]))
-                for i in range(len(self.clients)):
-                    #self.mysql_write(now, self.clients[i]+"Temp", self.isTemp[i])
-                    if self.state[i] == "on":
-                        self.mysql_write(now, self.clients[i], float(1))
-                    else:
-                        self.mysql_write(now, self.clients[i], float(0))
-                #with open(self.logpath+"/Tempsensors.txt", "a") as templogfile:
-                    #templogfile.write(now+",%6.2f" % self.w1.getValue(self.w1_slaves[0])+",%6.2f" %self.w1.getValue(self.w1_slaves[1]) + "\r\n" )
-                if(self.pumpe > 0):
-                    self.mysql_write(now, "ntPumpeDG", float(GPIO.input(self.pumpe)))
-                    #self.mysql_write(now, "ntVorlaufDG", self.w1.getValue(self.w1_slaves[1]))
-                            #self.mysql_write(now, self.sensors[idx], self.w1.getValue(self.sensor_ids[idx]))
-            if self.t_stop.is_set():
-                logging.info("Ausgeloggt!")
-        except Exception as e:
-            logging.error(e)
+    def broadcast_value(self):
+        self.bcastTstop = threading.Event()
+        bcastT = threading.Thread(target=self._broadcast_value)
+        bcastT.setDaemon(True)
+        bcastT.start()
+
+    def _broadcast_value(self):
+        udpSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        udpSock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT,1)
+        udpSock.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST, 1)
+        udpSock.settimeout(0.1)
+        while(not self.bcastTstop.is_set()):
+            try:
+                for sensor in self.sensor_ids:
+                    if(sensor in self.w1_slaves):
+                        val = self.w1.getValue(sensor)
+                        idx = self.sensor_ids.index(sensor)
+                        sensor = self.sensors[idx]
+                        now = time.strftime('%Y-%m-%d %H:%M:%S')
+                        message = {"measurement":{sensor:{"Value":0,"Floor":"","Type":"Temperature","Unit":"°C","Timestamp":"","Store":1}}}
+                        message["measurement"][sensor]["Floor"] = self.name
+                        message["measurement"][sensor]["Value"] = round(float(val),1)
+                        message["measurement"][sensor]["Timestamp"] = now
+                        udpSock.sendto(json.dumps(message).encode(),("<broadcast>",udpBcPort))
+            except Exception as e:
+                logging.error(str(e))
+            self.bcastTstop.wait(20)
 
     def set_pumpe(self): #OK
         if(self.pumpe < 1):
@@ -496,17 +444,17 @@ class steuerung(threading.Thread):
                         logging.info("Switching pump off")
                     GPIO.output(self.pumpe, self.off)
                     logging.debug("Pumpenausgang: %s", self.off)
-                self.t_stop.wait(60)
-            if self.t_stop.is_set():
-                logging.info("Ausgepumpt")
+                    self.t_stop.wait(60)
+                if self.t_stop.is_set():
+                    logging.info("Ausgepumpt")
         except Exception as e:
             logging.error(e)
-            
+                
     def set_status(self):
         logging.debug("Running set_status")
         self.check_reset() # Schaut, ob manuelle Modi auf auto zurückgesetzte werden müssen
         # Schauen, ob die Umwaelzpumpe läuft
-        if(self.get_oekofen_pumpe(self.pelle)):
+        if(self.get_oekofen_pumpe()):
             logging.debug("Umwaelzpumpe an")
             for client in self.clients:
                 # Hole Wert (on/off) aus Timerfile 
@@ -567,7 +515,6 @@ class steuerung(threading.Thread):
             GPIO.output(self.pumpe, self.off)
             logging.info("Switching BMC " + str(self.pumpe) + " off")
         GPIO.cleanup()
-        self.mysql_close()
         exit()
 
 
