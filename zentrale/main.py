@@ -11,6 +11,7 @@ from timer import timer
 import syslog
 from libby import tempsensors
 from libby import remote
+from libby import mbus
 import threading
 from threading import Thread
 import urllib
@@ -146,6 +147,8 @@ class steuerung(threading.Thread):
             ret = self.get_room_norm_temp(jcmd['Room'])
         elif(jcmd['command'] == "setRoomNormTemp"):
             ret = self.set_room_norm_temp(jcmd['Room'],jcmd['normTemp'])
+        elif(jcmd['command'] == "getCounterValues"):
+            ret = self.get_counter_values()
         else:
              ret = json.dumps({"answer":"Fehler","Wert":"Kein gültiges Kommando"})
         #logging.debug(ret)
@@ -257,6 +260,35 @@ class steuerung(threading.Thread):
             return(json.dumps({"room" : room, "normTemp" : self.clients[room]["normTemp"]}))
         except:
             return('{"answer":"error","command":"setRoomNormTemp"}')
+
+    def get_counter_values(self):
+        '''
+        This functions reads some values from the energy counter and retruns them as json string.
+        '''
+        logging.info("Counter")
+        mb = mbus.mbus()
+        result = mb.do_char_dev()
+        job = json.loads(result)
+        energy = []
+        for i in (job['body']['records']):
+            if i['type'] == 'VIFUnit.ENERGY_WH':
+                energy.append(float(i['value']))
+            if i['type'] == 'VIFUnit.FLOW_TEMPERATURE':
+                flow_temp = float(i['value'])
+            if i['type'] == 'VIFUnit.RETURN_TEMPERATURE':
+                return_temp =float(i['value'])
+            if i['type'] == 'VIFUnit.POWER_W' and i['function'] == 'FunctionType.INSTANTANEOUS_VALUE':
+                power = float(i['value'])
+            if i['type'] == 'VIFUnit.VOLUME_FLOW' and i['function'] == 'FunctionType.INSTANTANEOUS_VALUE':
+                flow = float(i['value'])
+        data = {}
+        data["Energy"] = {"Value":max(energy)/1e6, "Unit": "MWh"}
+        data["ForwardFlow"] = {"Value":flow_temp, "Unit":"°C"}
+        data["ReturnFlow"] = {"Value":return_temp, "Unit":"°C"}
+        data["Power"] = {"Value":power, "Unit":"W"}
+        data["Flow"] = {"Value":round(flow*1000,2), "Unit":"l/h"}
+        logging.info(data)
+        return(json.dumps({"floor" : self.name, "Data" : data}))
 
     def check_reset(self):
         if(self.system["ModeReset"]!="off"):
@@ -387,6 +419,11 @@ class steuerung(threading.Thread):
                 self.sensor_values[sensor] = {}
                 self.sensor_values[sensor]["Value"] = round(val,1)
                 self.sensor_values[sensor]["Timestamp"] = now
+                # Check, if the received sensor value belongs to a client and if yes, store the value to the client dict.
+                client = sensor[0:sensor.find("Temp")]
+                if(client in self.clients):
+                    self.clients[client]["isTemp"] = self.sensor_values[sensor]["Value"]
+
 
     def broadcast_value(self):
         self.bcastTstop = threading.Event()
