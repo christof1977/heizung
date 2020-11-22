@@ -265,7 +265,7 @@ class steuerung(threading.Thread):
         '''
         This functions reads some values from the energy counter and retruns them as json string.
         '''
-        logging.info("Counter")
+        logging.info("Getting values from MBus counter")
         mb = mbus.mbus()
         result = mb.do_char_dev()
         job = json.loads(result)
@@ -288,7 +288,7 @@ class steuerung(threading.Thread):
         data["Power"] = {"Value":power, "Unit":"W"}
         data["Flow"] = {"Value":round(flow*1000,2), "Unit":"l/h"}
         logging.info(data)
-        return(json.dumps({"floor" : self.name, "Data" : data}))
+        return(json.dumps({"Floor" : self.name, "Data" : data}))
 
     def check_reset(self):
         if(self.system["ModeReset"]!="off"):
