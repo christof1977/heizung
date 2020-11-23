@@ -282,7 +282,7 @@ class steuerung(threading.Thread):
             if i['type'] == 'VIFUnit.VOLUME_FLOW' and i['function'] == 'FunctionType.INSTANTANEOUS_VALUE':
                 flow = float(i['value'])
         data = {}
-        data["Energy"] = {"Value":max(energy)/1e6, "Unit": "MWh"}
+        data["Energy"] = {"Value":max(energy), "Unit": "Wh"}
         data["ForwardFlow"] = {"Value":flow_temp, "Unit":"°C"}
         data["ReturnFlow"] = {"Value":return_temp, "Unit":"°C"}
         data["Power"] = {"Value":power, "Unit":"W"}
