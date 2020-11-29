@@ -25,7 +25,7 @@ import logging
 
 udp_port = 5005
 server = "dose"
-port = 6663
+datacenterport = 6663
 udpBcPort =  6664
 logging.basicConfig(level=logging.INFO)
 #logging.basicConfig(level=logging.DEBUG)
@@ -38,9 +38,6 @@ class steuerung(threading.Thread):
         self.read_config()
         self.sensor_values = {} 
         self.system = {"ModeReset":"2:00"}
-        logging.info("Starting UDP-Server at " + self.basehost + ":" + str(self.baseport))
-        self.e_udp_sock = socket.socket( socket.AF_INET,  socket.SOCK_DGRAM )
-        self.e_udp_sock.bind( (self.basehost,self.baseport) ) 
         
         self.set_hw()
         
@@ -49,17 +46,11 @@ class steuerung(threading.Thread):
         self.Timer = timer(self.timerfile)
         
         #Starting Threads
-        pumpT = threading.Thread(target=self.set_pumpe)
-        pumpT.setDaemon(True)
-        pumpT.start()
+        self.set_pumpe()
+        self.short_timer()
+        self.timer_operation()
 
-        shortTimerT = threading.Thread(target=self.short_timer)
-        shortTimerT.setDaemon(True)
-        shortTimerT.start()
 
-        timerT = threading.Thread(target=self.timer_operation)
-        timerT.setDaemon(True)
-        timerT.start()
         self.udpServer()
         self.broadcast_value()
 
@@ -67,9 +58,7 @@ class steuerung(threading.Thread):
         logging.info("Starting UDP-Server at " + self.basehost + ":" + str(udp_port))
         self.udpSock = socket.socket( socket.AF_INET,  socket.SOCK_DGRAM )
         self.udpSock.bind( (self.basehost,udp_port) )
-        #self.udpSock.bind( ('fbhdg.local',udp_port) )
 
-        #self.t_stop = threading.Event()
         udpT = threading.Thread(target=self._udpServer)
         udpT.setDaemon(True)
         udpT.start()
@@ -99,7 +88,7 @@ class steuerung(threading.Thread):
         while(ret == -1):
             try:
                 json_string = '{"command" : "getUmwaelzpumpe"}'
-                ret = remote.udpRemote(json_string, addr=server, port=port)["answer"]
+                ret = remote.udpRemote(json_string, addr=server, port=datacenterport)["answer"]
             except:
                 ret = -1
                 time.sleep(1)
@@ -113,8 +102,6 @@ class steuerung(threading.Thread):
         data = data.decode()
         try:
             jcmd = json.loads(data)
-            #logging.debug(jcmd['command'])
-            #logging.debug(jcmd)
         except:
             logging.warning("Das ist mal kein JSON, pff!")
             ret = json.dumps({"answer": "Kaa JSON Dings!"})
@@ -151,7 +138,6 @@ class steuerung(threading.Thread):
             ret = self.get_counter_values()
         else:
              ret = json.dumps({"answer":"Fehler","Wert":"Kein gültiges Kommando"})
-        #logging.debug(ret)
         return(ret)
 
     def get_rooms(self):
@@ -176,6 +162,7 @@ class steuerung(threading.Thread):
         """ function to set status status of a single room
 
         """
+        #TODO
         return()
 
     def get_timer(self, room):
@@ -186,6 +173,7 @@ class steuerung(threading.Thread):
         return(ret)
 
     def set_timer(self, room):
+        #TODO
         return()
 
     def reload_timer(self):
@@ -304,6 +292,18 @@ class steuerung(threading.Thread):
                         self.clients[client]["Mode"] = "auto"
 
     def short_timer(self):
+        '''
+        Starts the short timer thread
+        '''
+        shortTimerT = threading.Thread(target=self._short_timer)
+        shortTimerT.setDaemon(True)
+        shortTimerT.start()
+
+    def _short_timer(self):
+        '''
+        Frequently look, if a shorttimer is activated for some room.
+        If yes, switch from automatic mode to shorttimer moder
+        '''
         if True:
         #try:
             timeout = 1
@@ -326,6 +326,16 @@ class steuerung(threading.Thread):
         #    logging.error(e)
 
     def timer_operation(self):
+        '''
+        Starts the timer_operation Thread.
+        '''
+        timerT = threading.Thread(target=self._timer_operation)
+        timerT.setDaemon(True)
+        timerT.start()
+
+    def _timer_operation(self):
+        ''' This function provides the freqent operation of the controller.
+        '''
         logging.info("Starting Timeroperationthread as " + threading.currentThread().getName())
         while(not self.t_stop.is_set()):
             self.set_status()
@@ -426,12 +436,22 @@ class steuerung(threading.Thread):
 
 
     def broadcast_value(self):
+        '''
+        Starts the UDP sensor broadcasting daemon thread
+        '''
         self.bcastTstop = threading.Event()
         bcastT = threading.Thread(target=self._broadcast_value)
         bcastT.setDaemon(True)
         bcastT.start()
 
     def _broadcast_value(self):
+        '''
+        This function is running as a thread and performs an UDP
+        broadcast of sensor values every 20 seconds on port udpBcPort.
+        This datagram could be fetched by multiple clients for purposes
+        of display or storage.
+        '''
+        logging.info("Starting UDP Sensor Broadcasting Thread" + threading.currentThread().getName())
         udpSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         udpSock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT,1)
         udpSock.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST, 1)
@@ -450,13 +470,28 @@ class steuerung(threading.Thread):
             self.bcastTstop.wait(20)
 
     def set_pumpe(self):
+        '''
+        This Function starts Pumpenthread.
+        '''
+        pumpT = threading.Thread(target=self._set_pumpe)
+        pumpT.setDaemon(True)
+        pumpT.start()
+
+
+    def _set_pumpe(self):
+        '''
+        If a pump is configured, the pump thread will be started.
+        The thread checks frequently (every 60 seconds by defualt),
+        if at least one heating circuit is active. If yes, the pump is
+        switched on. Puprose is to operate the pump only when needed.
+        '''
         if(self.pumpe < 1):
             logging.info("Not starting Pumpenthread, no pump present")
             return
         try:
             logging.info("Starting Pumpenthread as " + threading.currentThread().getName())
             while(not self.t_stop.is_set()):
-                # Checking, wether on of the room outputs is switches on -> if yes, switch pump on
+                # Checking, if one of the room outputs is switches on -> if yes, switch pump on
                 # First, Outputs are checked and their values are collected in state[]
                 state = []
                 for client in self.clients:
@@ -468,12 +503,12 @@ class steuerung(threading.Thread):
                     if GPIO.input(self.pumpe) == self.off:
                         logging.info("Switching pump on")
                     GPIO.output(self.pumpe, self.on)
-                    logging.debug("Pumpenausgang: %s", self.on)
+                    logging.debug("Pump: %s", self.on)
                 else:
                     if GPIO.input(self.pumpe) == self.on:
                         logging.info("Switching pump off")
                     GPIO.output(self.pumpe, self.off)
-                    logging.debug("Pumpenausgang: %s", self.off)
+                    logging.debug("Pump: %s", self.off)
                     self.t_stop.wait(60)
                 if self.t_stop.is_set():
                     logging.info("Ausgepumpt")
@@ -481,6 +516,16 @@ class steuerung(threading.Thread):
             logging.error(e)
                 
     def set_status(self):
+        '''
+        This function controls the heating circuits. The circuits are normally
+        controlled by the timer.json file and the room temperature.
+        A heating circuit is switched on, when we are within the on-time and the room
+        temperature is below the set room temperature.
+        It will be checked, if a manual mode (on/off) is selectedm this overrides automatic mode,
+        this includes the Shorttimer function.
+        Last but not least, is is checked, if the main heating pump is running. If not, all
+        heating circuitsare turned off.
+        '''
         logging.debug("Running set_status")
         self.check_reset() # Schaut, ob manuelle Modi auf auto zurückgesetzte werden müssen
         # Schauen, ob die Umwaelzpumpe läuft
