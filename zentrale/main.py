@@ -345,7 +345,7 @@ class steuerung(threading.Thread):
 
     def read_config(self):
         self.hostname = socket.gethostname()
-        self.basehost = self.hostname + '.local'
+        self.basehost = self.hostname + ".home"
         realpath = os.path.realpath(__file__)
         basepath = os.path.split(realpath)[0]
         setpath = os.path.join(basepath, 'settings')
