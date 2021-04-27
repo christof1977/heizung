@@ -1,0 +1,26 @@
+{
+"West":{
+ "room":"West",
+ "settings":{
+	 "Mo-So":{
+		 "6:30":"on",
+	         "21:29":"off"}
+            }
+ },
+"Sued":{
+ "name":"Süd",
+ "settings":{
+	 "Mo-So":{
+		 "7:00":"on",
+		 "21:30":"off"}
+            }
+ },
+ "Rasen":{
+ "name":"Rasen",
+ "settings":{
+	 "Mo-So":{
+		 "6:30":"on",
+		 "21:31":"off"}
+            }
+ }
+}
