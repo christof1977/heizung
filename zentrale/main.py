@@ -50,9 +50,10 @@ class steuerung(threading.Thread):
         self.short_timer()
         self.timer_operation()
 
-
         self.udpServer()
         self.broadcast_value()
+
+
 
     def udpServer(self):
         logging.info("Starting UDP-Server at " + self.basehost + ":" + str(udp_port))
@@ -402,6 +403,15 @@ class steuerung(threading.Thread):
         self.timerpath = setpath
         self.timerfile = os.path.join(setpath, self.config['BASE']['Timerfile'])
         logging.info(self.timerfile)
+        try:
+            self.garagenkontakt = int(self.config['GARAGE']['Kontakt'])
+        except:
+            self.garagenkontakt = -1
+        try:
+            self.garagenmelder = int(self.config['GARAGE']['Melder'])
+        except:
+            self.garagenmelder = -1
+
 
     def set_hw(self): 
         GPIO.setwarnings(False)
@@ -423,6 +433,21 @@ class steuerung(threading.Thread):
             logging.info("Setting BMC " + str(self.pumpe) + " as output")
         else:
             logging.info("Not using pump")
+        if(self.garagenkontakt > 0):
+            GPIO.setup(self.garagenkontakt, GPIO.OUT)
+            GPIO.output(self.garagenkontakt, 0)
+            logging.info("Setting Garagenkontakt: %s", str(self.garagenkontakt))
+        if(self.garagenmelder > 0):
+            GPIO.setup(self.garagenmelder, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+            logging.info("Setting Garagenmelder: %s", str(self.garagenmelder))
+            GPIO.add_event_detect(self.garagenmelder, GPIO.BOTH, callback = self.garagenmeldung, bouncetime = 250)
+
+    def garagenmeldung(self, channel):
+        status = GPIO.input(self.garagenmelder)
+        if(status == 1):
+            logging.info("Garage zu")
+        elif(status == 0):
+            logging.info("Garage auf")
 
     def get_sensor_values(self):
         for sensor in self.sensor_ids:
