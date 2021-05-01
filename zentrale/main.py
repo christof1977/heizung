@@ -83,19 +83,23 @@ class steuerung(threading.Thread):
         Retries, if no response
 
         """
-
-        ret = -1
-        while(ret == -1):
-            try:
-                json_string = '{"command" : "getUmwaelzpumpe"}'
-                ret = remote.udpRemote(json_string, addr=server, port=datacenterport)["answer"]
-            except:
-                ret = -1
-                time.sleep(1)
-        if(ret in ["true", "True", "TRUE"]):
+        if(self.oekofen == 0):
+            # Do not get state of heating system, just return true to simulate a running heating pump
+            logging.debug("Not taking Oekofen state into account")
             ret = True
         else:
-            ret = False
+            ret = -1
+            while(ret == -1):
+                try:
+                    json_string = '{"command" : "getUmwaelzpumpe"}'
+                    ret = remote.udpRemote(json_string, addr=server, port=datacenterport)["answer"]
+                except:
+                    ret = -1
+                    time.sleep(1)
+            if(ret in ["true", "True", "TRUE"]):
+                ret = True
+            else:
+                ret = False
         return(ret)
 
     def parseCmd(self, data):
@@ -363,6 +367,7 @@ class steuerung(threading.Thread):
         self.name = self.config['BASE']['Name']
         self.sensor_ids = self.config['BASE']['Sensor_IDs'].split(";")
         self.pumpe = int(self.config['BASE']['Pumpe'])
+        self.oekofen = int(self.config['BASE']['Oekofen'])
         relais_tmp = self.config['BASE']['Relais'].split(";")
         relais = []
         for i in range(len(relais_tmp)):
