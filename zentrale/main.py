@@ -27,13 +27,30 @@ udp_port = 5005
 server = "dose"
 datacenterport = 6663
 udpBcPort =  6664
-logging.basicConfig(level=logging.INFO)
-#logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger('Heizung')
+#logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
+
+
+class udpBroadcast():
+    def __init__(self):
+        self.udpSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        self.udpSock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT,1)
+        self.udpSock.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST, 1)
+        self.udpSock.settimeout(0.1)
+        logger.info("UDP Broadcast socket created")
+
+    def send(self, message):
+        try:
+            logger.debug(json.dumps(message))
+            self.udpSock.sendto(json.dumps(message).encode(),("<broadcast>",udpBcPort))
+        except:
+            logger.error("Something went wrong while sending UDP broadcast message")
 
 class steuerung(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
-        logging.info("Starting Steuerungthread as " + threading.currentThread().getName())
+        logger.info("Starting Steuerungthread as " + threading.currentThread().getName())
         self.t_stop = threading.Event()
         self.read_config()
         self.sensor_values = {} 
@@ -51,12 +68,13 @@ class steuerung(threading.Thread):
         self.timer_operation()
 
         self.udpServer()
+        self.udp = udpBroadcast()
+
+        self.garagenmeldung(self.garagenmelder)
         self.broadcast_value()
 
-
-
     def udpServer(self):
-        logging.info("Starting UDP-Server at " + self.basehost + ":" + str(udp_port))
+        logger.info("Starting UDP-Server at " + self.basehost + ":" + str(udp_port))
         self.udpSock = socket.socket( socket.AF_INET,  socket.SOCK_DGRAM )
         self.udpSock.bind( (self.basehost,udp_port) )
 
@@ -65,19 +83,19 @@ class steuerung(threading.Thread):
         udpT.start()
 
     def _udpServer(self):
-        logging.info("Server laaft")
+        logger.info("Server laaft")
         while(not self.t_stop.is_set()):
             try:
                 data, addr = self.udpSock.recvfrom( 1024 )# Puffer-Groesse ist 1024 Bytes.
-                #logging.debug("Kimm ja scho")
+                #logger.debug("Kimm ja scho")
                 ret = self.parseCmd(data) # Abfrage der Fernbedienung (UDP-Server), der Rest passiert per Interrupt/Event
                 self.udpSock.sendto(str(ret).encode('utf-8'), addr)
             except Exception as e:
                 try:
                     self.udpSock.sendto(str('{"answer":"error"}').encode('utf-8'), addr)
-                    logging.warning("Uiui, beim UDP senden/empfangen hat's kracht!" + str(e))
+                    logger.warning("Uiui, beim UDP senden/empfangen hat's kracht!" + str(e))
                 except Exception as o:
-                    logging.warning("Uiui, beim UDP senden/empfangen hat's richtig kracht!" + str(o))
+                    logger.warning("Uiui, beim UDP senden/empfangen hat's richtig kracht!" + str(o))
 
     def get_oekofen_pumpe(self):
         """ Get status from Oekofen heating pump
@@ -86,7 +104,7 @@ class steuerung(threading.Thread):
         """
         if(self.oekofen == 0):
             # Do not get state of heating system, just return true to simulate a running heating pump
-            logging.debug("Not taking Oekofen state into account")
+            logger.debug("Not taking Oekofen state into account")
             ret = True
         else:
             ret = -1
@@ -108,7 +126,7 @@ class steuerung(threading.Thread):
         try:
             jcmd = json.loads(data)
         except:
-            logging.warning("Das ist mal kein JSON, pff!")
+            logger.warning("Das ist mal kein JSON, pff!")
             ret = json.dumps({"answer": "Kaa JSON Dings!"})
             return(ret)
         if(jcmd['command'] == "getStatus"):
@@ -141,8 +159,27 @@ class steuerung(threading.Thread):
             ret = self.set_room_norm_temp(jcmd['Room'],jcmd['normTemp'])
         elif(jcmd['command'] == "getCounterValues"):
             ret = self.get_counter_values()
+        elif(jcmd['command'] == "setTor"):
+            ret = self.set_tor(jcmd['Request'])
         else:
              ret = json.dumps({"answer":"Fehler","Wert":"Kein gültiges Kommando"})
+        return(ret)
+
+    def set_tor(self, val):
+        """ This function triggers the switch of the Garagentor. When it's open, it closes and vice versa.
+        The return of the function is either a success or a error message
+
+        """
+        if self.garagenkontakt > 0:
+            try:
+                GPIO.output(self.garagenkontakt, 1)
+                time.sleep(.2)
+                GPIO.output(self.garagenkontakt, 0)
+                ret = json.dumps({"Answer":"setTor","Request":val,"Result":"Success"})
+            except:
+                ret = json.dumps({"Answer":"setTor","Request":val,"Result":"Error"})
+        else:
+            ret = json.dumps({"Answer":"setTor","Request":val,"Result":"Error","Value":"Tor? Welches Tor?"})
         return(ret)
 
     def get_rooms(self):
@@ -157,7 +194,7 @@ class steuerung(threading.Thread):
 
         """
         try:
-            logging.info(self.clients[room])
+            logger.info(self.clients[room])
             ret = json.dumps({"answer":"getRoomStatus","room":room,"status":self.clients[room]})
         except:
             ret = json.dumps({"answer":"room does not exist"})
@@ -229,7 +266,7 @@ class steuerung(threading.Thread):
             self.clients[room]["Shorttimer"] = int(time)
             self.clients[room]["ShorttimerMode"] = "run"
             self.clients[room]["Mode"] = mode
-            logging.info("Setting shorttimer for room %s to %ds: %s", room, int(time), mode)
+            logger.info("Setting shorttimer for room %s to %ds: %s", room, int(time), mode)
             self.set_status()
             return(json.dumps(self.clients[room]["Shorttimer"]))
         except:
@@ -249,7 +286,7 @@ class steuerung(threading.Thread):
         """
         try:
             self.clients[room]["normTemp"] = float(temp)
-            logging.info("Setting normTemp for room %s to %s°C", room, temp)
+            logger.info("Setting normTemp for room %s to %s°C", room, temp)
             return(json.dumps({"room" : room, "normTemp" : self.clients[room]["normTemp"]}))
         except:
             return('{"answer":"error","command":"setRoomNormTemp"}')
@@ -258,7 +295,7 @@ class steuerung(threading.Thread):
         '''
         This functions reads some values from the energy counter and retruns them as json string.
         '''
-        logging.info("Getting values from MBus counter")
+        logger.info("Getting values from MBus counter")
         mb = mbus.mbus()
         result = mb.do_char_dev()
         job = json.loads(result)
@@ -280,7 +317,7 @@ class steuerung(threading.Thread):
         data["ReturnFlow"] = {"Value":return_temp, "Unit":"°C"}
         data["Power"] = {"Value":power, "Unit":"W"}
         data["Flow"] = {"Value":round(flow*1000,2), "Unit":"l/h"}
-        logging.info(data)
+        logger.info(data)
         return(json.dumps({"Floor" : self.name, "Data" : data}))
 
     def check_reset(self):
@@ -292,7 +329,7 @@ class steuerung(threading.Thread):
             res_m = int(self.system["ModeReset"].split(":")[1])
             if(now_h == res_h):
                 if(now_m == res_m or now_m == res_m+1):
-                    logging.info("Resetting mode to auto")
+                    logger.info("Resetting mode to auto")
                     for client in self.clients:
                         self.clients[client]["Mode"] = "auto"
 
@@ -315,7 +352,7 @@ class steuerung(threading.Thread):
             while(not self.t_stop.is_set()):
                 for client in self.clients:
                     if(self.clients[client]["Shorttimer"] > 0 and self.clients[client]["ShorttimerMode"] == "run"):
-                        #logging.debug("%s: -%ds", client, self.clients[client]["Shorttimer"])
+                        #logger.debug("%s: -%ds", client, self.clients[client]["Shorttimer"])
                         self.clients[client]["Shorttimer"] -= timeout
                     else:
                         self.clients[client]["Shorttimer"] = 0
@@ -323,12 +360,12 @@ class steuerung(threading.Thread):
                         old = self.clients[client]["Mode"]
                         self.clients[client]["Mode"] = "auto"
                         if(old != self.clients[client]["Mode"]):
-                            logging.info("End of shorttimer %s, resetting mode to auto", client)
+                            logger.info("End of shorttimer %s, resetting mode to auto", client)
                             self.hw_state()
-                #logging.info("Running short_timer")
+                #logger.info("Running short_timer")
                 self.t_stop.wait(timeout)
         #except Exception as e:
-        #    logging.error(e)
+        #    logger.error(e)
 
     def timer_operation(self):
         '''
@@ -341,12 +378,12 @@ class steuerung(threading.Thread):
     def _timer_operation(self):
         ''' This function provides the freqent operation of the controller.
         '''
-        logging.info("Starting Timeroperationthread as " + threading.currentThread().getName())
+        logger.info("Starting Timeroperationthread as " + threading.currentThread().getName())
         while(not self.t_stop.is_set()):
             self.set_status()
             self.t_stop.wait(60)
         if self.t_stop.is_set():
-            logging.info("Ausgetimed!")
+            logger.info("Ausgetimed!")
 
     def read_config(self):
         self.hostname = socket.gethostname()
@@ -357,7 +394,7 @@ class steuerung(threading.Thread):
         inifile = os.path.join(setpath, self.hostname + '.ini')
 
         self.config = configparser.ConfigParser()
-        logging.info("Loading " + inifile)
+        logger.info("Loading " + inifile)
         self.config.read(inifile)
 
         self.baseport = int(self.config['BASE']['Port'])
@@ -402,7 +439,7 @@ class steuerung(threading.Thread):
         self.logpath = os.path.join(basepath, 'log')
         self.timerpath = setpath
         self.timerfile = os.path.join(setpath, self.config['BASE']['Timerfile'])
-        logging.info(self.timerfile)
+        logger.info(self.timerfile)
         try:
             self.garagenkontakt = int(self.config['GARAGE']['Kontakt'])
         except:
@@ -421,33 +458,40 @@ class steuerung(threading.Thread):
                 i = int(i)
                 GPIO.setup(i, GPIO.OUT)
                 GPIO.output(i, self.off)
-                logging.info("Setting BMC " + str(i) + " as unused -> off")
+                logger.info("Setting BMC " + str(i) + " as unused -> off")
         for client in self.clients:
             for j in self.clients[client]["Relais"]:
                 GPIO.setup(j, GPIO.OUT)
                 GPIO.output(j, self.off)
-                logging.info("Setting BMC " + str(j) + " as output")
+                logger.info("Setting BMC " + str(j) + " as output")
         if(self.pumpe > 0):
             GPIO.setup(self.pumpe, GPIO.OUT)
             GPIO.output(self.pumpe, self.off)
-            logging.info("Setting BMC " + str(self.pumpe) + " as output")
+            logger.info("Setting BMC " + str(self.pumpe) + " as output")
         else:
-            logging.info("Not using pump")
+            logger.info("Not using pump")
         if(self.garagenkontakt > 0):
             GPIO.setup(self.garagenkontakt, GPIO.OUT)
             GPIO.output(self.garagenkontakt, 0)
-            logging.info("Setting Garagenkontakt: %s", str(self.garagenkontakt))
+            logger.info("Setting Garagenkontakt: %s", str(self.garagenkontakt))
         if(self.garagenmelder > 0):
             GPIO.setup(self.garagenmelder, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-            logging.info("Setting Garagenmelder: %s", str(self.garagenmelder))
+            logger.info("Setting Garagenmelder: %s", str(self.garagenmelder))
             GPIO.add_event_detect(self.garagenmelder, GPIO.BOTH, callback = self.garagenmeldung, bouncetime = 250)
 
     def garagenmeldung(self, channel):
-        status = GPIO.input(self.garagenmelder)
+        if(channel == self.garagenmelder):
+            status = GPIO.input(channel)
         if(status == 1):
-            logging.info("Garage zu")
+            self.garagentor = "zu"
+            message = {"measurement":{"Garagentor":{"Value":self.garagentor}}}
+            self.udp.send(message)
+            logger.debug(self.garagentor)
         elif(status == 0):
-            logging.info("Garage auf")
+            self.garagentor = "auf"
+            message = {"measurement":{"Garagentor":{"Value":self.garagentor}}}
+            self.udp.send(message)
+            logger.debug(self.garagentor)
 
     def get_sensor_values(self):
         for sensor in self.sensor_ids:
@@ -463,7 +507,6 @@ class steuerung(threading.Thread):
                 client = sensor[0:sensor.find("Temp")]
                 if(client in self.clients):
                     self.clients[client]["isTemp"] = self.sensor_values[sensor]["Value"]
-
 
     def broadcast_value(self):
         '''
@@ -481,11 +524,7 @@ class steuerung(threading.Thread):
         This datagram could be fetched by multiple clients for purposes
         of display or storage.
         '''
-        logging.info("Starting UDP Sensor Broadcasting Thread" + threading.currentThread().getName())
-        udpSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        udpSock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT,1)
-        udpSock.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST, 1)
-        udpSock.settimeout(0.1)
+        logger.info("Starting UDP Sensor Broadcasting Thread" + threading.currentThread().getName())
         while(not self.bcastTstop.is_set()):
             try:
                 self.get_sensor_values()
@@ -494,9 +533,11 @@ class steuerung(threading.Thread):
                     message["measurement"][sensor]["Floor"] = self.name
                     message["measurement"][sensor]["Value"] = self.sensor_values[sensor]["Value"]
                     message["measurement"][sensor]["Timestamp"] = self.sensor_values[sensor]["Timestamp"]
-                    udpSock.sendto(json.dumps(message).encode(),("<broadcast>",udpBcPort))
+                    self.udp.send(message)
+                self.garagenmeldung(self.garagenmelder)
             except Exception as e:
-                logging.error(str(e))
+                logger.error("Error in broadcast_value")
+                logger.error(str(e))
             self.bcastTstop.wait(20)
 
     def set_pumpe(self):
@@ -516,34 +557,34 @@ class steuerung(threading.Thread):
         switched on. Puprose is to operate the pump only when needed.
         '''
         if(self.pumpe < 1):
-            logging.info("Not starting Pumpenthread, no pump present")
+            logger.info("Not starting Pumpenthread, no pump present")
             return
         try:
-            logging.info("Starting Pumpenthread as " + threading.currentThread().getName())
+            logger.info("Starting Pumpenthread as " + threading.currentThread().getName())
             while(not self.t_stop.is_set()):
                 # Checking, if one of the room outputs is switches on -> if yes, switch pump on
                 # First, Outputs are checked and their values are collected in state[]
                 state = []
                 for client in self.clients:
                     state.append(self.clients[client]["Status"])
-                logging.debug("State for pump: %s", state)
+                logger.debug("State for pump: %s", state)
                 # Check, if any of the outputs is switched to on, if yes, activate pump
                 if(any(st == "on" for st in state)):
-                    logging.debug("Irgendeiner ist on")
+                    logger.debug("Irgendeiner ist on")
                     if GPIO.input(self.pumpe) == self.off:
-                        logging.info("Switching pump on")
+                        logger.info("Switching pump on")
                     GPIO.output(self.pumpe, self.on)
-                    logging.debug("Pump: %s", self.on)
+                    logger.debug("Pump: %s", self.on)
                 else:
                     if GPIO.input(self.pumpe) == self.on:
-                        logging.info("Switching pump off")
+                        logger.info("Switching pump off")
                     GPIO.output(self.pumpe, self.off)
-                    logging.debug("Pump: %s", self.off)
+                    logger.debug("Pump: %s", self.off)
                     self.t_stop.wait(60)
                 if self.t_stop.is_set():
-                    logging.info("Ausgepumpt")
+                    logger.info("Ausgepumpt")
         except Exception as e:
-            logging.error(e)
+            logger.error(e)
                 
     def set_status(self):
         '''
@@ -556,11 +597,11 @@ class steuerung(threading.Thread):
         Last but not least, is is checked, if the main heating pump is running. If not, all
         heating circuitsare turned off.
         '''
-        logging.debug("Running set_status")
+        logger.debug("Running set_status")
         self.check_reset() # Schaut, ob manuelle Modi auf auto zurückgesetzte werden müssen
         # Schauen, ob die Umwaelzpumpe läuft
         if(self.get_oekofen_pumpe()):
-            logging.debug("Umwaelzpumpe an")
+            logger.debug("Umwaelzpumpe an")
             for client in self.clients:
                 # Hole Wert (on/off) aus Timerfile 
                 self.clients[client]["Timer"] = self.Timer.get_recent_set(client)
@@ -573,50 +614,50 @@ class steuerung(threading.Thread):
                     # isTemp > normTemp mit Hysteres -> off
                     elif float(self.clients[client]["normTemp"]) + self.hysterese/2 <= float(self.clients[client]["isTemp"]):
                         self.clients[client]["Status"] = "off"
-                        logging.debug(client + " running in auto mode, setting state to " + self.clients[client]["Status"])
+                        logger.debug(client + " running in auto mode, setting state to " + self.clients[client]["Status"])
                 # Im manuellen Modus, Zustand on:
                 elif(self.clients[client]["Mode"] == "on"):
                     self.clients[client]["Status"] = "on"
-                    logging.debug(client + " running in manual mode, setting state to " + self.clients[client]["Status"])
+                    logger.debug(client + " running in manual mode, setting state to " + self.clients[client]["Status"])
                 # Im manuellen Modus, Zustand off:
                 elif(self.clients[client]["Mode"] == "off"):
                     self.clients[client]["Status"] = "off"
-                    logging.debug(client + " running in manual mode, setting state to " + self.clients[client]["Status"])
+                    logger.debug(client + " running in manual mode, setting state to " + self.clients[client]["Status"])
                 else:
                     self.clients[client]["Status"] = "off"
-                    logging.debug(client + " running in auto mode, setting state to " + self.clients[client]["Status"])
+                    logger.debug(client + " running in auto mode, setting state to " + self.clients[client]["Status"])
                 if(old != self.clients[client]["Status"]):
-                    logging.info("State has changed: turning %s %s", client, self.clients[client]["Status"])
+                    logger.info("State has changed: turning %s %s", client, self.clients[client]["Status"])
         # Wenn die Umwälzpumpe nicht läuft, alles ausschalten:
         else:
-            logging.debug("Umwaelzpumpe aus")
+            logger.debug("Umwaelzpumpe aus")
             for client in self.clients:
                 self.clients[client]["Status"] = "off"
-                logging.debug("heating pump off, setting "+ client +" state to " + self.clients[client]["Status"])
+                logger.debug("heating pump off, setting "+ client +" state to " + self.clients[client]["Status"])
         self.hw_state()
 
     def hw_state(self): #OK
-        logging.debug("Running hw_state")
+        logger.debug("Running hw_state")
         for client in self.clients:
             if self.clients[client]["Status"] == "on":
                 val = self.on
             else:
                 val = self.off
             for relais in self.clients[client]["Relais"]:
-                logging.debug("Client: %s, Relais: %d: %s", client, relais, val)
+                logger.debug("Client: %s, Relais: %d: %s", client, relais, val)
                 GPIO.output(relais,val)
-                logging.debug("Ventilausgang %s: %s", relais, val)
+                logger.debug("Ventilausgang %s: %s", relais, val)
  
     def stop(self):
         self.t_stop.set()
-        logging.info("Steuerung: So long sucker!")
+        logger.info("Steuerung: So long sucker!")
         for client in self.clients:
             for j in self.clients[client]["Relais"]:
                 GPIO.output(j, self.off)
-                logging.info("Switching BMC " + str(j) + " off")
+                logger.info("Switching BMC " + str(j) + " off")
         if(self.pumpe > 0):
             GPIO.output(self.pumpe, self.off)
-            logging.info("Switching BMC " + str(self.pumpe) + " off")
+            logger.info("Switching BMC " + str(self.pumpe) + " off")
         GPIO.cleanup()
         return
 
