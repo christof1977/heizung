@@ -480,8 +480,12 @@ class steuerung(threading.Thread):
             GPIO.add_event_detect(self.garagenmelder, GPIO.BOTH, callback = self.garagenmeldung, bouncetime = 250)
 
     def garagenmeldung(self, channel):
-        if(channel == self.garagenmelder):
+        logger.debug("GARAGENMELDA: %s", str(self.garagenmelder))
+        logger.debug("Channel: %s", str(channel))
+        if(channel == self.garagenmelder and channel > 0):
             status = GPIO.input(channel)
+        else:
+            return -1
         if(status == 1):
             self.garagentor = "zu"
             message = {"measurement":{"Garagentor":{"Value":self.garagentor}}}
