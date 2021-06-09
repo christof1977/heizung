@@ -125,6 +125,7 @@ class steuerung(threading.Thread):
         data = data.decode()
         try:
             jcmd = json.loads(data)
+            logging.info(data)
         except:
             logger.warning("Das ist mal kein JSON, pff!")
             ret = json.dumps({"answer": "Kaa JSON Dings!"})
@@ -149,10 +150,14 @@ class steuerung(threading.Thread):
             ret = self.get_room_mode(jcmd['Room'])
         elif(jcmd['command'] == "setRoomMode"):
             ret = self.set_room_mode(jcmd['Room'],jcmd['Mode'])
+        elif(jcmd['command'] == "toggleRoomMode"):
+            ret = self.toggle_room_mode(jcmd['Room'])
         elif(jcmd['command'] == "getRoomShortTimer"):
             ret = self.get_room_shorttimer(jcmd['Room'])
         elif(jcmd['command'] == "setRoomShortTimer"):
             ret = self.set_room_shorttimer(jcmd['Room'],jcmd['Time'],jcmd['Mode'])
+        elif(jcmd['command'] == "resetRoomShortTimer"):
+            ret = self.reset_room_shorttimer(jcmd['Room'])
         elif(jcmd['command'] == "getRoomNormTemp"):
             ret = self.get_room_norm_temp(jcmd['Room'])
         elif(jcmd['command'] == "setRoomNormTemp"):
@@ -248,8 +253,24 @@ class steuerung(threading.Thread):
         """ Setting mode of room
 
         """
-        self.clients[room]["Mode"] = mode
-        return(json.dumps({"answer":"setRoomMode","room":room,"mode":self.clients[room]["Mode"]}))
+        self.clients[room]["setMode"] = mode
+        return(json.dumps({"answer":"setRoomMode","room":room,"mode":self.clients[room]["setMode"]}))
+
+    def toggle_room_mode(self, room):
+        """ Setting mode of room to the next one
+
+        """
+        if(self.clients[room]["setMode"] == "off"):
+            mode = "on"
+        elif(self.clients[room]["setMode"] == "on"):
+            mode = "auto"
+        elif(self.clients[room]["setMode"] == "auto"):
+            mode = "off"
+        else:
+            mode = "auto"
+        ret = self.set_room_mode(room, mode)
+        return(ret)
+
 
     def get_room_shorttimer(self, room):
         """ Returns value of room's shorttimer to overrider Mode settings for a defined time in seconds
@@ -263,10 +284,27 @@ class steuerung(threading.Thread):
 
         """
         try:
-            self.clients[room]["Shorttimer"] = int(time)
+            self.clients[room]["Shorttimer"] = int(time) + self.clients[room]["Shorttimer"]
             self.clients[room]["ShorttimerMode"] = "run"
             self.clients[room]["Mode"] = mode
             logger.info("Setting shorttimer for room %s to %ds: %s", room, int(time), mode)
+            self.set_status()
+            return(json.dumps(self.clients[room]["Shorttimer"]))
+        except:
+            return('{"answer":"error","command":"Shorttimer"}')
+
+    def reset_room_shorttimer(self, room):
+        """ Reets value of room's shorttimer, sets mode accordingly
+        After setting, set_status is called to apply change immediately
+
+        """
+        try:
+            old_mode = self.clients[room]["ShorttimerMode"]
+            self.clients[room]["Shorttimer"] = 0
+            self.clients[room]["ShorttimerMode"] = "off"
+            self.clients[room]["Mode"] = self.clients[room]["setMode"]
+            if(old_mode == "run"):
+                logger.info("Resetting shorttimer for room %s, new mode: %s", room, self.clients[room]["Mode"])
             self.set_status()
             return(json.dumps(self.clients[room]["Shorttimer"]))
         except:
@@ -355,13 +393,7 @@ class steuerung(threading.Thread):
                         #logger.debug("%s: -%ds", client, self.clients[client]["Shorttimer"])
                         self.clients[client]["Shorttimer"] -= timeout
                     else:
-                        self.clients[client]["Shorttimer"] = 0
-                        self.clients[client]["ShorttimerMode"] = "off"
-                        old = self.clients[client]["Mode"]
-                        self.clients[client]["Mode"] = "auto"
-                        if(old != self.clients[client]["Mode"]):
-                            logger.info("End of shorttimer %s, resetting mode to auto", client)
-                            self.hw_state()
+                        self.reset_room_shorttimer(client)
                 #logger.info("Running short_timer")
                 self.t_stop.wait(timeout)
         #except Exception as e:
@@ -421,6 +453,7 @@ class steuerung(threading.Thread):
             self.clients[client]["Relais"] = relais[i]
             self.clients[client]["Status"] = "off"
             self.clients[client]["Mode"] = "auto"
+            self.clients[client]["setMode"] = "auto"
             self.clients[client]["normTemp"] = 21
             self.clients[client]["isTemp"] = 18
             self.clients[client]["Shorttimer"] = 0
