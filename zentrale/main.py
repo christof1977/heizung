@@ -125,7 +125,7 @@ class steuerung(threading.Thread):
         data = data.decode()
         try:
             jcmd = json.loads(data)
-            logging.info(data)
+            logging.debug(data)
         except:
             logger.warning("Das ist mal kein JSON, pff!")
             ret = json.dumps({"answer": "Kaa JSON Dings!"})
@@ -177,6 +177,7 @@ class steuerung(threading.Thread):
         """
         if self.garagenkontakt > 0:
             try:
+                logging.info("Moving Garagentor")
                 GPIO.output(self.garagenkontakt, 1)
                 time.sleep(.2)
                 GPIO.output(self.garagenkontakt, 0)
