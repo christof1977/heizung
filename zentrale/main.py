@@ -18,6 +18,7 @@ from threading import Thread
 import urllib
 import urllib.request
 import logging
+import select
 
 # TODO
 # - Integration Ist-Temperatur
@@ -77,7 +78,37 @@ class steuerung(threading.Thread):
 
         self.garagenmeldung(self.garagenmelder)
         self.broadcast_value()
+        self.udpRx()
 
+    def udpRx(self):
+         self.udpRxTstop = threading.Event()
+         rxValT = threading.Thread(target=self._udpRx)
+         rxValT.setDaemon(True)
+         rxValT.start()
+
+    def _udpRx(self):
+         port =  6664
+         print("Starting UDP client on port ", port)
+         udpclient = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)  # UDP
+         udpclient.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+         udpclient.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+         udpclient.bind(("", port))
+         udpclient.setblocking(0)
+         while(not self.udpRxTstop.is_set()):
+             ready = select.select([udpclient], [], [], .1)
+             if ready[0]:
+                 data, addr = udpclient.recvfrom(8192)
+                 try:
+                     message = json.loads(data.decode())
+                     if("measurement" in message.keys()):
+                         meas = message["measurement"]
+                         if("tempOekoAussen" in meas.keys()):
+                             try:
+                                 self.mix.ff_temp_target = float(meas["tempOekoAussen"]["Value"])
+                             except:
+                                 logger.warning("tempOekoAussen not valid or so")
+                 except Exception as e:
+                     logger.warning(str(e))
 
     def udpServer(self):
         logger.info("Starting UDP-Server at " + self.basehost + ":" + str(udp_port))

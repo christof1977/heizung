@@ -8,8 +8,8 @@ import logging
 
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-#logger.setLevel(logging.INFO)
+#logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 class mixer():
@@ -30,7 +30,7 @@ class mixer():
         self.running = False
         self.min_ff_temp = 28
         self.max_ff_temp = 34
-        self.mix_time_c = .3
+        self.mix_time_c = .1
         self.mix_time_m = .1
         self.mix_time_f = .05
         self.mix_pause_c = 5 
@@ -60,6 +60,7 @@ class mixer():
         if(ff_temp > self.max_ff_temp):
             ff_temp = self.max_ff_temp
         self.ff_temp_target_val = ff_temp
+        logger.debug("ff_temp_target_val = " + str(self.ff_temp_target_val) + "°C")
 
     @property
     def ff_temp_is(self) -> float:
