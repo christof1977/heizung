@@ -4,6 +4,3 @@
 [submodule "zentrale/libby"]
 	path = zentrale/libby
 	url = git://github.com/christof1977/libby
-[submodule "zentrale/ivPID"]
-	path = zentrale/ivPID
-	url = git@github.com:ivmech/ivPID.git
