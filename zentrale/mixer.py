@@ -53,8 +53,9 @@ class mixer():
     def ff_temp_target(self, is_temp:float):
         '''This function returns the value of the forward flow temperature
         which correspondends to the measured actual otuside temperature
+        Heizkurve
         '''
-        ff_temp = -0.18 * is_temp + 31.24
+        ff_temp = -0.15 * is_temp + 33.25
         if(ff_temp < self.min_ff_temp):
             ff_temp = self.min_ff_temp
         if(ff_temp > self.max_ff_temp):
@@ -140,13 +141,3 @@ class mixer():
 
 if(__name__ == "__main__"):
     mix = mixer()
-    print(mix.ff_temp_target)
-    mix.ff_temp_target = -3
-    print(mix.ff_temp_target)
-
-    print(mix.ff_temp_is)
-    mix.ff_temp_is = 313
-    print(mix.ff_temp_is)
-
-    mix.warmer()
-    print(mix.ff_temp_is)
