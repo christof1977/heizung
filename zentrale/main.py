@@ -106,7 +106,7 @@ class steuerung(threading.Thread):
                              try:
                                  self.mix.ff_temp_target = float(meas["tempOekoAussen"]["Value"])
                              except:
-                                 logger.warning("tempOekoAussen not valid or so")
+                                 logger.debug("tempOekoAussen not valid or so")
                  except Exception as e:
                      logger.warning(str(e))
 
