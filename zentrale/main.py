@@ -8,6 +8,7 @@ import datetime
 import configparser
 import json
 from timer import timer
+from mixer import mixer
 import syslog
 from libby import tempsensors
 from libby import remote
@@ -17,6 +18,7 @@ from threading import Thread
 import urllib
 import urllib.request
 import logging
+import select
 
 # TODO
 # - Integration Ist-Temperatur
@@ -57,6 +59,10 @@ class steuerung(threading.Thread):
         self.system = {"ModeReset":"2:00"}
         
         self.set_hw()
+        if(self.mixer_addr != -1):
+            #self.mix = mixer(addr=self.mixer_addr)
+            self.mix = mixer()
+            self.mix.run()
         
         self.w1 = tempsensors.onewires()
         self.w1_slaves = self.w1.enumerate()
@@ -72,6 +78,37 @@ class steuerung(threading.Thread):
 
         self.garagenmeldung(self.garagenmelder)
         self.broadcast_value()
+        self.udpRx()
+
+    def udpRx(self):
+         self.udpRxTstop = threading.Event()
+         rxValT = threading.Thread(target=self._udpRx)
+         rxValT.setDaemon(True)
+         rxValT.start()
+
+    def _udpRx(self):
+         port =  6664
+         print("Starting UDP client on port ", port)
+         udpclient = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)  # UDP
+         udpclient.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+         udpclient.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+         udpclient.bind(("", port))
+         udpclient.setblocking(0)
+         while(not self.udpRxTstop.is_set()):
+             ready = select.select([udpclient], [], [], .1)
+             if ready[0]:
+                 data, addr = udpclient.recvfrom(8192)
+                 try:
+                     message = json.loads(data.decode())
+                     if("measurement" in message.keys()):
+                         meas = message["measurement"]
+                         if("tempOekoAussen" in meas.keys()):
+                             try:
+                                 self.mix.ff_temp_target = float(meas["tempOekoAussen"]["Value"])
+                             except:
+                                 logger.warning("tempOekoAussen not valid or so")
+                 except Exception as e:
+                     logger.warning(str(e))
 
     def udpServer(self):
         logger.info("Starting UDP-Server at " + self.basehost + ":" + str(udp_port))
@@ -482,6 +519,13 @@ class steuerung(threading.Thread):
             self.garagenmelder = int(self.config['GARAGE']['Melder'])
         except:
             self.garagenmelder = -1
+        try:
+            self.mixer_addr = hex(int(self.config['BASE']['Mischer'],16))
+            logger.info(self.mixer_addr)
+            self.mixer_sens = self.config['BASE']['MischerSens']
+        except:
+            self.mixer_addr = -1
+            self.mixer_sens = -1
 
 
     def set_hw(self): 
@@ -590,7 +634,7 @@ class steuerung(threading.Thread):
     def _set_pumpe(self):
         '''
         If a pump is configured, the pump thread will be started.
-        The thread checks frequently (every 60 seconds by defualt),
+        The thread checks frequently (every 60 seconds by default),
         if at least one heating circuit is active. If yes, the pump is
         switched on. Puprose is to operate the pump only when needed.
         '''
@@ -611,16 +655,22 @@ class steuerung(threading.Thread):
                     logger.debug("Irgendeiner ist on")
                     if GPIO.input(self.pumpe) == self.off:
                         logger.info("Switching pump on")
-                    GPIO.output(self.pumpe, self.on)
-                    logger.debug("Pump: %s", self.on)
+                        GPIO.output(self.pumpe, self.on)
+                        logger.debug("Pump: %s", self.on)
+                    if(not self.mix.is_running() and self.mixer_addr != -1):
+                        #Check, if mixer is running, if not, starting mixer if present
+                        self.mix.run()
                 else:
                     if GPIO.input(self.pumpe) == self.on:
                         logger.info("Switching pump off")
-                    GPIO.output(self.pumpe, self.off)
-                    logger.debug("Pump: %s", self.off)
-                    self.t_stop.wait(60)
-                if self.t_stop.is_set():
-                    logger.info("Ausgepumpt")
+                        GPIO.output(self.pumpe, self.off)
+                        logger.debug("Pump: %s", self.off)
+                    if(self.mix.is_running() and self.mixer_addr != -1):
+                        #Check, if mixer is running, if yes, stop mixer if present
+                        self.mix.stop()
+                self.t_stop.wait(30)
+                #if self.t_stop.is_set():
+            logger.info("Ausgepumpt")
         except Exception as e:
             logger.error(e)
                 
@@ -702,14 +752,16 @@ class steuerung(threading.Thread):
     def run(self):
         while True:
             try:
-                time.sleep(.5)
+                idx = self.sensors.index(self.mixer_sens)
+                val = self.w1.getValue(self.sensor_ids[idx])
+                self.mix.ff_temp_is = val
+                time.sleep(5)
             except KeyboardInterrupt: # CTRL+C exit
                 self.stop()
                 break
 
 if __name__ == "__main__":
     steuerung = steuerung()
-    steuerung.start()
     steuerung.run()
     
 
