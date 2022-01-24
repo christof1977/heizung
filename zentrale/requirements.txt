@@ -1,3 +1,5 @@
 RPi.GPIO
 serial
 pyMeterBus
+drv8830
+i2cdevice
