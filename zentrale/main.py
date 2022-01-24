@@ -24,7 +24,7 @@ import logging
 # - Sauberes Beenden
 
 udp_port = 5005
-server = "dose.home"
+server = "dose"
 datacenterport = 6663
 udpBcPort =  6664
 logger = logging.getLogger('Heizung')
