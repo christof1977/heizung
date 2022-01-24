@@ -752,9 +752,12 @@ class steuerung(threading.Thread):
     def run(self):
         while True:
             try:
-                idx = self.sensors.index(self.mixer_sens)
-                val = self.w1.getValue(self.sensor_ids[idx])
-                self.mix.ff_temp_is = val
+                try: # if mixer is available
+                    idx = self.sensors.index(self.mixer_sens)
+                    val = self.w1.getValue(self.sensor_ids[idx])
+                    self.mix.ff_temp_is = val
+                except: # if mixer is not available, just do nothing
+                    pass
                 time.sleep(5)
             except KeyboardInterrupt: # CTRL+C exit
                 self.stop()
