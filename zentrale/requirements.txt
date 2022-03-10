@@ -1,5 +1,7 @@
 RPi.GPIO
+smbus2
 serial
 pyMeterBus
 drv8830
 i2cdevice
+simplejson
