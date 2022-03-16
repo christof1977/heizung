@@ -200,7 +200,9 @@ class steuerung(threading.Thread):
         elif(jcmd['command'] == "setRoomNormTemp"):
             ret = self.set_room_norm_temp(jcmd['Room'],jcmd['normTemp'])
         elif(jcmd['command'] == "getCounterValues"):
-            ret = self.get_counter_values()
+            ret = self.get_counter_values(jcmd['Counter'])
+        elif(jcmd['command'] == "getCounter"):
+            ret = self.get_counter()
         elif(jcmd['command'] == "setTor"):
             ret = self.set_tor(jcmd['Request'])
         else:
@@ -367,12 +369,24 @@ class steuerung(threading.Thread):
         except:
             return('{"answer":"error","command":"setRoomNormTemp"}')
 
-    def get_counter_values(self):
+    def get_counter(self):
+        try:
+            return(json.dumps({"Floor" : self.name, "Counter" : self.zaehler}))
+        except:
+            return(json.dumps({"Answer":"Counter","Result":"Error"}))
+
+    def get_counter_values(self, counter):
         '''
         This functions reads some values from the energy counter and retruns them as json string.
         '''
+        try:
+            idx = self.zaehler.index(counter)
+        except Exception as e:
+            logger.error(e)
+            return(json.dumps({"Answer":"getCounterValues","Result":"Error"}))
+            
         logger.info("Getting values from MBus counter")
-        mb = mbus.mbus(address=self.zaehleraddr)
+        mb = mbus.mbus(address=self.zaehleraddr[idx])
         result = mb.do_char_dev()
         job = json.loads(result)
         energy = []
@@ -394,7 +408,7 @@ class steuerung(threading.Thread):
         data["Power"] = {"Value":power, "Unit":"W"}
         data["Flow"] = {"Value":round(flow*1000,2), "Unit":"l/h"}
         logger.info(data)
-        return(json.dumps({"Floor" : self.name, "Data" : data}))
+        return(json.dumps({"Floor" : self.name, "Counter" : self.zaehler[idx], "Data" : data}))
 
     def check_reset(self):
         if(self.system["ModeReset"]!="off"):
@@ -476,7 +490,11 @@ class steuerung(threading.Thread):
         self.sensor_ids = self.config['BASE']['Sensor_IDs'].split(";")
         self.pumpe = int(self.config['BASE']['Pumpe'])
         self.oekofen = int(self.config['BASE']['Oekofen'])
-        self.zaehleraddr = int(self.config['BASE']['ZaehlerAddr'])
+        self.zaehler = self.config['BASE']['Zaehler'].split(";")
+        self.zaehleraddr = (self.config['BASE']['ZaehlerAddr'].split(";"))
+        self.zaehleraddr = [int(i) for i in self.zaehleraddr]
+        print(self.zaehler)
+        print(self.zaehleraddr)
         relais_tmp = self.config['BASE']['Relais'].split(";")
         relais = []
         for i in range(len(relais_tmp)):
