@@ -372,7 +372,7 @@ class steuerung(threading.Thread):
         This functions reads some values from the energy counter and retruns them as json string.
         '''
         logger.info("Getting values from MBus counter")
-        mb = mbus.mbus()
+        mb = mbus.mbus(address=self.zaehleraddr)
         result = mb.do_char_dev()
         job = json.loads(result)
         energy = []
@@ -476,6 +476,7 @@ class steuerung(threading.Thread):
         self.sensor_ids = self.config['BASE']['Sensor_IDs'].split(";")
         self.pumpe = int(self.config['BASE']['Pumpe'])
         self.oekofen = int(self.config['BASE']['Oekofen'])
+        self.zaehleraddr = int(self.config['BASE']['ZaehlerAddr'])
         relais_tmp = self.config['BASE']['Relais'].split(";")
         relais = []
         for i in range(len(relais_tmp)):
