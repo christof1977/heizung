@@ -490,11 +490,16 @@ class steuerung(threading.Thread):
         self.sensor_ids = self.config['BASE']['Sensor_IDs'].split(";")
         self.pumpe = int(self.config['BASE']['Pumpe'])
         self.oekofen = int(self.config['BASE']['Oekofen'])
-        self.zaehler = self.config['BASE']['Zaehler'].split(";")
-        self.zaehleraddr = (self.config['BASE']['ZaehlerAddr'].split(";"))
-        self.zaehleraddr = [int(i) for i in self.zaehleraddr]
-        print(self.zaehler)
-        print(self.zaehleraddr)
+        try:
+            self.zaehler = self.config['BASE']['Zaehler'].split(";")
+            self.zaehleraddr = (self.config['BASE']['ZaehlerAddr'].split(";"))
+            self.zaehleraddr = [int(i) for i in self.zaehleraddr]
+            logger.info(self.zaehler)
+            logger.info(self.zaehleraddr)
+        except:
+            # Kein Zähler konfiguriert
+            pass
+
         relais_tmp = self.config['BASE']['Relais'].split(";")
         relais = []
         for i in range(len(relais_tmp)):
@@ -676,17 +681,28 @@ class steuerung(threading.Thread):
                         logger.info("Switching pump on")
                         GPIO.output(self.pumpe, self.on)
                         logger.debug("Pump: %s", self.on)
-                    if(not self.mix.is_running() and self.mixer_addr != -1):
-                        #Check, if mixer is running, if not, starting mixer if present
-                        self.mix.run()
+                    try:
+                        # Try is only successful, if there is a mixer object
+                        if(not self.mix.is_running()):
+                            #Check, if mixer is running, if not, starting mixer if present
+                            self.mix.run()
+                    except:
+                        # Do nothing, because mixer object is not present
+                        pass
+
                 else:
                     if GPIO.input(self.pumpe) == self.on:
                         logger.info("Switching pump off")
                         GPIO.output(self.pumpe, self.off)
                         logger.debug("Pump: %s", self.off)
-                    if(self.mix.is_running() and self.mixer_addr != -1):
-                        #Check, if mixer is running, if yes, stop mixer if present
-                        self.mix.stop()
+                    try:
+                        # Try is only successful, if there is a mixer object
+                        if(self.mix.is_running()):
+                            #Check, if mixer is running, if yes, stop mixer if present
+                            self.mix.stop()
+                    except:
+                        # Do nothing, because mixer object is not present
+                        pass
                 self.t_stop.wait(30)
                 #if self.t_stop.is_set():
             logger.info("Ausgepumpt")
