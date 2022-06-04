@@ -5,3 +5,4 @@ pyMeterBus
 drv8830
 i2cdevice
 simplejson
+paho-mqtt
