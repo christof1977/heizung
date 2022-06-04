@@ -1,0 +1,13 @@
+[Unit]
+Before=dhcpcd.service
+#Before=network-pre.target
+BindsTo=sys-subsystem-net-devices-eth0.device
+After=sys-subsystem-net-devices-eth0.device
+
+[Service]
+Type=oneshot
+ExecStart=/home/pi/setmac.sh
+
+[Install]
+#WantedBy=multi-user.target
+WantedBy=network.target
