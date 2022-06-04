@@ -19,6 +19,7 @@ import urllib
 import urllib.request
 import logging
 import select
+import paho.mqtt.publish as publish
 
 # TODO
 # - Integration Ist-Temperatur
@@ -550,6 +551,9 @@ class steuerung(threading.Thread):
         except:
             self.mixer_addr = -1
             self.mixer_sens = -1
+        self.mqtthost = self.config['MQTT']['mqtthost']
+        self.mqttuser = self.config['MQTT']['mqttuser']
+        self.mqttpass = self.config['MQTT']['mqttpass']
 
 
     def set_hw(self): 
@@ -588,16 +592,17 @@ class steuerung(threading.Thread):
             status = GPIO.input(channel)
         else:
             return -1
-        if(status == 1):
-            self.garagentor = "zu"
-            message = {"measurement":{"Garagentor":{"Value":self.garagentor}}}
-            self.udp.send(message)
-            logger.debug(self.garagentor)
-        elif(status == 0):
-            self.garagentor = "auf"
-            message = {"measurement":{"Garagentor":{"Value":self.garagentor}}}
-            self.udp.send(message)
-            logger.debug(self.garagentor)
+        try:
+            if(status == 1):
+                self.garagentor = "zu"
+                publish.single("Garage/Tor", self.garagentor, hostname=self.mqtthost, client_id=self.hostname,auth = {"username":self.mqttuser, "password":self.mqttpass})
+                logger.debug(self.garagentor)
+            elif(status == 0):
+                self.garagentor = "auf"
+                publish.single("Garage/Tor", self.garagentor, hostname=self.mqtthost, client_id=self.hostname,auth = {"username":self.mqttuser, "password":self.mqttpass})
+                logger.debug(self.garagentor)
+        except Exception as e:
+            logging.error(e)
 
     def get_sensor_values(self):
         for sensor in self.sensor_ids:
