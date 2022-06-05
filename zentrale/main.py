@@ -486,9 +486,17 @@ class steuerung(threading.Thread):
         self.hysterese = float(self.config['BASE']['Hysterese'])
         clients = self.config['BASE']['Clients'].split(";")
         names = self.config['BASE']['Names'].split(";")
-        self.sensors = self.config['BASE']['Sensors'].split(";")
+        #self.sensors = self.config['BASE']['Sensors'].split(";")
         self.name = self.config['BASE']['Name']
-        self.sensor_ids = self.config['BASE']['Sensor_IDs'].split(";")
+        #self.sensor_ids = self.config['BASE']['Sensor_IDs'].split(";")
+        self.sensorik = {}
+        sensorik = dict(self.config.items('SENSORS'))
+        for sensor in sensorik:
+            tmp = sensorik[sensor].split(", ")
+            sensor = sensor.capitalize()
+            self.sensorik[sensor] = {}
+            self.sensorik[sensor]["Type"] = tmp[0]
+            self.sensorik[sensor]["ID"] = tmp[1]
         self.pumpe = int(self.config['BASE']['Pumpe'])
         self.oekofen = int(self.config['BASE']['Oekofen'])
         try:
@@ -605,19 +613,25 @@ class steuerung(threading.Thread):
             logging.error(e)
 
     def get_sensor_values(self):
-        for sensor in self.sensor_ids:
-            if(sensor in self.w1_slaves):
-                val = self.w1.getValue(sensor)
-                idx = self.sensor_ids.index(sensor)
-                sensor = self.sensors[idx]
-                now = time.strftime('%Y-%m-%d %H:%M:%S')
+        for sensor in self.sensorik:
+            if(self.sensorik[sensor]["ID"] in self.w1_slaves):
+                val = self.w1.getValue(self.sensorik[sensor]["ID"])
                 self.sensor_values[sensor] = {}
                 self.sensor_values[sensor]["Value"] = round(val,1)
-                self.sensor_values[sensor]["Timestamp"] = now
-                # Check, if the received sensor value belongs to a client and if yes, store the value to the client dict.
-                client = sensor[0:sensor.find("Temp")]
-                if(client in self.clients):
+                publish.single(self.name + "/" + sensor + "/" + self.sensorik[sensor]["Type"], round(val,1), hostname=self.mqtthost, client_id=self.hostname,auth = {"username":self.mqttuser, "password":self.mqttpass})
+                if(sensor in self.clients):
                     self.clients[client]["isTemp"] = self.sensor_values[sensor]["Value"]
+                
+
+        #for sensor in self.sensor_ids:
+        #    if(sensor in self.w1_slaves):
+        #        #val = self.w1.getValue(sensor)
+                #idx = self.sensor_ids.index(sensor)
+                #sensor = self.sensors[idx]
+                #now = time.strftime('%Y-%m-%d %H:%M:%S')
+                #self.sensor_values[sensor]["Timestamp"] = now
+                # Check, if the received sensor value belongs to a client and if yes, store the value to the client dict.
+        #        client = sensor[0:sensor.find("Temp")]
 
     def broadcast_value(self):
         '''
@@ -639,8 +653,6 @@ class steuerung(threading.Thread):
         while(not self.bcastTstop.is_set()):
             try:
                 self.get_sensor_values()
-                for sensor in self.sensor_values: 
-                    publish.single(self.name + "/" + sensor, self.sensor_values[sensor]["Value"], hostname=self.mqtthost, client_id=self.hostname,auth = {"username":self.mqttuser, "password":self.mqttpass})
                 self.garagenmeldung(self.garagenmelder)
             except Exception as e:
                 logger.error("Error in broadcast_value")
