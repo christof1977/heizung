@@ -56,7 +56,6 @@ class steuerung(threading.Thread):
         logger.info("Starting Steuerungthread as " + threading.currentThread().getName())
         self.t_stop = threading.Event()
         self.read_config()
-        self.sensor_values = {} 
         self.system = {"ModeReset":"2:00"}
         
         self.set_hw()
@@ -486,9 +485,7 @@ class steuerung(threading.Thread):
         self.hysterese = float(self.config['BASE']['Hysterese'])
         clients = self.config['BASE']['Clients'].split(";")
         names = self.config['BASE']['Names'].split(";")
-        #self.sensors = self.config['BASE']['Sensors'].split(";")
         self.name = self.config['BASE']['Name']
-        #self.sensor_ids = self.config['BASE']['Sensor_IDs'].split(";")
         self.sensorik = {}
         sensorik = dict(self.config.items('SENSORS'))
         for sensor in sensorik:
@@ -615,23 +612,10 @@ class steuerung(threading.Thread):
     def get_sensor_values(self):
         for sensor in self.sensorik:
             if(self.sensorik[sensor]["ID"] in self.w1_slaves):
-                val = self.w1.getValue(self.sensorik[sensor]["ID"])
-                self.sensor_values[sensor] = {}
-                self.sensor_values[sensor]["Value"] = round(val,1)
-                publish.single(self.name + "/" + sensor + "/" + self.sensorik[sensor]["Type"], round(val,1), hostname=self.mqtthost, client_id=self.hostname,auth = {"username":self.mqttuser, "password":self.mqttpass})
+                val = round(self.w1.getValue(self.sensorik[sensor]["ID"]),1)
+                publish.single(self.name + "/" + sensor + "/" + self.sensorik[sensor]["Type"], val, hostname=self.mqtthost, client_id=self.hostname,auth = {"username":self.mqttuser, "password":self.mqttpass})
                 if(sensor in self.clients):
-                    self.clients[client]["isTemp"] = self.sensor_values[sensor]["Value"]
-                
-
-        #for sensor in self.sensor_ids:
-        #    if(sensor in self.w1_slaves):
-        #        #val = self.w1.getValue(sensor)
-                #idx = self.sensor_ids.index(sensor)
-                #sensor = self.sensors[idx]
-                #now = time.strftime('%Y-%m-%d %H:%M:%S')
-                #self.sensor_values[sensor]["Timestamp"] = now
-                # Check, if the received sensor value belongs to a client and if yes, store the value to the client dict.
-        #        client = sensor[0:sensor.find("Temp")]
+                    self.clients[sensor]["isTemp"] = val
 
     def broadcast_value(self):
         '''
@@ -800,12 +784,8 @@ class steuerung(threading.Thread):
     def run(self):
         while True:
             try:
-                try: # if mixer is available
-                    idx = self.sensors.index(self.mixer_sens)
-                    val = self.w1.getValue(self.sensor_ids[idx])
-                    self.mix.ff_temp_is = val
-                except: # if mixer is not available, just do nothing
-                    pass
+                if self.mixer_sens in self.sensorik:
+                    self.mix.ff_temp_is = self.w1.getValue(self.sensorik[self.mixer_sens]["ID"])
                 time.sleep(5)
             except KeyboardInterrupt: # CTRL+C exit
                 self.stop()
