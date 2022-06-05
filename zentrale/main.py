@@ -640,11 +640,7 @@ class steuerung(threading.Thread):
             try:
                 self.get_sensor_values()
                 for sensor in self.sensor_values: 
-                    message = {"measurement":{sensor:{"Value":0,"Floor":"","Type":"Temperature","Unit":"°C","Timestamp":"","Store":1}}}
-                    message["measurement"][sensor]["Floor"] = self.name
-                    message["measurement"][sensor]["Value"] = self.sensor_values[sensor]["Value"]
-                    message["measurement"][sensor]["Timestamp"] = self.sensor_values[sensor]["Timestamp"]
-                    self.udp.send(message)
+                    publish.single(self.name + "/" + sensor, self.sensor_values[sensor]["Value"], hostname=self.mqtthost, client_id=self.hostname,auth = {"username":self.mqttuser, "password":self.mqttpass})
                 self.garagenmeldung(self.garagenmelder)
             except Exception as e:
                 logger.error("Error in broadcast_value")
