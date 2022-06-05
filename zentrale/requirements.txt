@@ -1,4 +1,5 @@
 RPi.GPIO
+smbus
 smbus2
 serial
 pyMeterBus

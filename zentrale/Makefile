@@ -22,8 +22,8 @@ run:		## run to the hills
 run: env
 	$(ENV_PYTHON) main.py
 
-#env: $(ENV_BIN)/activate install
-env:
+env: $(ENV_BIN)/activate install
+#env:
 $(ENV_BIN)/activate: requirements.txt
 	test -d $(ENV) || $(PYTHON) -m $(VENV) $(ENV)
 	$(ENV_PYTHON) -m ensurepip --upgrade
