@@ -234,18 +234,19 @@ class steuerung(threading.Thread):
         The return of the function is either a success or a error message
 
         """
-        logging.info(val)
         if self.garagenkontakt > 0:
-            #if(val ==  "zu"):
-
-            try:
-                logging.info("Moving Garagentor")
-                GPIO.output(self.garagenkontakt, 1)
-                time.sleep(.2)
-                GPIO.output(self.garagenkontakt, 0)
-                ret = json.dumps({"Answer":"setTor","Request":val,"Result":"Success"})
-            except:
-                ret = json.dumps({"Answer":"setTor","Request":val,"Result":"Error"})
+            if(val ==  self._get_tor()):
+                logging.info("Gargentor ist doch schon "+ val + ". Fuesse stillhalten")
+                ret = json.dumps({"Answer":"setTor","Request":val,"Result":"Tor ist doch schon " + val + ", Doldi."})
+            else:
+                try:
+                    logging.info("Moving Garagentor")
+                    GPIO.output(self.garagenkontakt, 1)
+                    time.sleep(.2)
+                    GPIO.output(self.garagenkontakt, 0)
+                    ret = json.dumps({"Answer":"setTor","Request":val,"Result":"Success"})
+                except:
+                    ret = json.dumps({"Answer":"setTor","Request":val,"Result":"Error"})
         else:
             ret = json.dumps({"Answer":"setTor","Request":val,"Result":"Error","Value":"Tor? Welches Tor?"})
         return(ret)
