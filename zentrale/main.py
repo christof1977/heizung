@@ -205,8 +205,28 @@ class steuerung(threading.Thread):
             ret = self.get_counter()
         elif(jcmd['command'] == "setTor"):
             ret = self.set_tor(jcmd['Request'])
+        elif(jcmd['command'] == "getTor"):
+            ret = self.get_tor()
         else:
              ret = json.dumps({"answer":"Fehler","Wert":"Kein gültiges Kommando"})
+        return(ret)
+
+    def _get_tor(self):
+        if(self.garagenmelder != -1):
+            status = GPIO.input(self.garagenmelder)
+            if(status == 1):
+                return("zu")
+            else:
+                return("auf")
+        else:
+            return("Error")
+
+    def get_tor(self):
+        ret = self._get_tor()
+        if(ret == "Error"):
+            ret = json.dumps({"Answer":"getTor","Result":"Error","Value":"Tor? Welches Tor?"})
+        else:
+            ret = json.dumps({"Answer":"getTor","Result":ret})
         return(ret)
 
     def set_tor(self, val):
@@ -214,7 +234,10 @@ class steuerung(threading.Thread):
         The return of the function is either a success or a error message
 
         """
+        logging.info(val)
         if self.garagenkontakt > 0:
+            #if(val ==  "zu"):
+
             try:
                 logging.info("Moving Garagentor")
                 GPIO.output(self.garagenkontakt, 1)
