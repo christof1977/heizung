@@ -19,6 +19,7 @@ import urllib
 import urllib.request
 import logging
 import select
+import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
 
 # TODO
@@ -76,9 +77,36 @@ class steuerung(threading.Thread):
         self.udpServer()
         self.udp = udpBroadcast()
 
-        self.garagenmeldung(self.garagenmelder)
         self.broadcast_value()
         self.udpRx()
+
+        if(self.garagenkontakt != -1):
+            self.mqttclientgarage = mqtt.Client("Garage")
+            self.mqttclientgarage.on_connect = self.on_mqtt_connect
+            self.mqttclientgarage.on_message = self.on_mqtt_message
+            # Then, connect to the broker.
+            self.mqttclientgarage.username_pw_set(self.mqttuser, self.mqttpass)
+            self.mqttclientgarage.connect(self.mqtthost, 1883, 60)
+            # Finally, process messages until a `client.disconnect()` is called.
+            self.mqttclientgarage.loop_start()
+        self.garagenmeldung(self.garagenmelder)
+
+    # The callback for when the client connects to the broker.
+    def on_mqtt_connect(self, client, userdata, flags, rc):
+        print("Connected To Broker")
+        # After establishing a connection, subscribe to the input topic.
+        client.subscribe("Garage/Tor/Kommando")
+
+    # The callback for when a message is received from the broker.
+    def on_mqtt_message(self, client, userdata, msg):
+        # Decode the message payload from Bytes to String.
+        payload = msg.payload.decode('UTF-8')
+        if(msg.topic == "Garage/Tor/Kommando"):
+            if(payload == "UP"):
+                self.set_tor("auf")
+            else:
+                self.set_tor("zu")
+        # Check if payload is the quit signal.
 
     def udpRx(self):
          self.udpRxTstop = threading.Event()
@@ -624,11 +652,11 @@ class steuerung(threading.Thread):
         try:
             if(status == 1):
                 self.garagentor = "zu"
-                publish.single("Garage/Tor", self.garagentor, hostname=self.mqtthost, client_id=self.hostname,auth = {"username":self.mqttuser, "password":self.mqttpass})
+                self.mqttclientgarage.publish("Garage/Tor/Zustand", self.garagentor)
                 logger.debug(self.garagentor)
             elif(status == 0):
                 self.garagentor = "auf"
-                publish.single("Garage/Tor", self.garagentor, hostname=self.mqtthost, client_id=self.hostname,auth = {"username":self.mqttuser, "password":self.mqttpass})
+                self.mqttclientgarage.publish("Garage/Tor/Zustand", self.garagentor)
                 logger.debug(self.garagentor)
         except Exception as e:
             logging.error(e)
