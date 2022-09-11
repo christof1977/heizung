@@ -689,9 +689,13 @@ class steuerung(threading.Thread):
         while(not self.bcastTstop.is_set()):
             try:
                 self.get_sensor_values()
+            except Exception as e:
+                logger.error("Error in broadcast_value: sensor_values")
+                logger.error(str(e))
+            try:
                 self.garagenmeldung(self.garagenmelder)
             except Exception as e:
-                logger.error("Error in broadcast_value")
+                logger.error("Error in broadcast_value: Garagenmeldung")
                 logger.error(str(e))
             self.bcastTstop.wait(20)
 
