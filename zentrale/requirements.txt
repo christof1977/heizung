@@ -9,4 +9,6 @@ simplejson
 paho-mqtt
 flask
 flask_restful
+flask-marshmallow
 gunicorn
+python-prctl
