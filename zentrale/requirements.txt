@@ -1,9 +1,12 @@
 RPi.GPIO
 smbus
 smbus2
-serial
+pyserial
 pyMeterBus
 drv8830
 i2cdevice
 simplejson
 paho-mqtt
+flask
+flask_restful
+gunicorn
