@@ -20,6 +20,12 @@ import urllib.request
 import logging
 import select
 import paho.mqtt.publish as publish
+import prctl
+
+from flask import Flask
+from flask import request
+from flask_restful import Api
+from flask_restful import Resource, abort
 
 # TODO
 # - Integration Ist-Temperatur
@@ -50,10 +56,11 @@ class udpBroadcast():
         except:
             logger.error("Something went wrong while sending UDP broadcast message")
 
-class steuerung(threading.Thread):
+#class steuerung(threading.Thread):
+class steuerung(Resource):
     def __init__(self):
-        threading.Thread.__init__(self)
-        logger.info("Starting Steuerungthread as " + threading.currentThread().getName())
+        #threading.Thread.__init__(self)
+        #logger.info("Starting Steuerungthread as " + threading.currentThread().getName())
         self.t_stop = threading.Event()
         self.read_config()
         self.system = {"ModeReset":"2:00"}
@@ -87,6 +94,7 @@ class steuerung(threading.Thread):
          rxValT.start()
 
     def _udpRx(self):
+         prctl.set_name("udpRx")
          port =  6664
          print("Starting UDP client on port ", port)
          udpclient = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)  # UDP
@@ -120,6 +128,7 @@ class steuerung(threading.Thread):
         udpT.start()
 
     def _udpServer(self):
+        prctl.set_name("udpServer")
         logger.info("Server laaft")
         while(not self.t_stop.is_set()):
             try:
@@ -436,6 +445,7 @@ class steuerung(threading.Thread):
         Frequently look, if a shorttimer is activated for some room.
         If yes, switch from automatic mode to shorttimer moder
         '''
+        prctl.set_name("Shorttimer")
         if True:
         #try:
             timeout = 1
@@ -462,6 +472,7 @@ class steuerung(threading.Thread):
     def _timer_operation(self):
         ''' This function provides the freqent operation of the controller.
         '''
+        prctl.set_name("Timer Operation")
         logger.info("Starting Timeroperationthread as " + threading.currentThread().getName())
         while(not self.t_stop.is_set()):
             self.set_status()
@@ -633,6 +644,7 @@ class steuerung(threading.Thread):
         This datagram could be fetched by multiple clients for purposes
         of display or storage.
         '''
+        prctl.set_name("UDP Broadcast Value")
         logger.info("Starting UDP Sensor Broadcasting Thread" + threading.currentThread().getName())
         while(not self.bcastTstop.is_set()):
             try:
@@ -659,6 +671,7 @@ class steuerung(threading.Thread):
         if at least one heating circuit is active. If yes, the pump is
         switched on. Puprose is to operate the pump only when needed.
         '''
+        prctl.set_name("Famous Pumpenthread")
         if(self.pumpe < 1):
             logger.info("Not starting Pumpenthread, no pump present")
             return
@@ -781,7 +794,15 @@ class steuerung(threading.Thread):
         GPIO.cleanup()
         return
 
+
     def run(self):
+         self.runstop = threading.Event()
+         runT = threading.Thread(target=self._run, name="run_thread")
+         runT.setDaemon(True)
+         runT.start()
+
+    def _run(self):
+        prctl.set_name("Running runner")
         while True:
             try:
                 if self.mixer_sens in self.sensorik:
@@ -791,8 +812,15 @@ class steuerung(threading.Thread):
                 self.stop()
                 break
 
-if __name__ == "__main__":
-    steuerung = steuerung()
-    steuerung.run()
-    
+#host_name = "0.0.0.0"
+#port = 5000 
+#app = Flask(__name__)
+#api = Api(app)
+
+#api.add_resource(Status, '/status', '/status/<string:id>')
+
+#if __name__ == "__main__":
+#    steuerung = steuerung()
+#    threading.Thread(target=lambda: app.run(host=host_name, port=port, debug=True, use_reloader=False)).start()
+#    steuerung.run()
 
