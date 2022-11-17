@@ -1,12 +1,16 @@
 [Unit]
 Description=Heizungssteuerung
 After=network-online.target
+
 [Service]
 Type=simple
 User=heizung
 Group=heizung
 UMask=007
-ExecStart=/home/heizung/heizung/zentrale/env/bin/python3 /home/heizung/heizung/zentrale/main.py
+WorkingDirectory=/home/heizung/heizung/zentrale
+Environment="PATH=/home/heizung/heizung/zentrale/env/bin/"
+#ExecStart=/home/heizung/heizung/zentrale/env/bin/python3 /home/heizung/heizung/zentrale/main.py
+ExecStart=/home/heizung/heizung/zentrale/env/bin/gunicorn --bind 0.0.0.0:5000 main:app
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 TimeoutStopSec=10
