@@ -210,12 +210,14 @@ class steuerung(Resource):
             ret = self.get_alive()
         elif(jcmd['command'] == "getRooms"):
             ret = self.get_rooms()
-        elif(jcmd['command'] == "getTimer"):
-            ret = self.get_timer(jcmd['Room'])
-        elif(jcmd['command'] == "setTimer"):
-            ret = self.set_timer(jcmd['Room'])
+        elif(jcmd['command'] == "getRoomTimer"):
+            ret = self.get_room_timer(jcmd['Room'])
+        elif(jcmd['command'] == "setRoomTimer"):
+            ret = self.set_room_timer(jcmd['Room'])
         elif(jcmd['command'] == "reloadTimer"):
             ret = self.reload_timer()
+        elif(jcmd['command'] == "getTimer"):
+            ret = self.get_timer()
         elif(jcmd['command'] == "getRoomStatus"):
             ret = self.get_room_status(jcmd['Room'])
         elif(jcmd['command'] == "setRoomStatus"):
@@ -293,8 +295,6 @@ class steuerung(Resource):
 
         """
         keys = self.clients.keys()
-        #print(type(keys))
-        #print(list(keys))
         ret = json.dumps({"answer":"getRooms","available_rooms":list(self.clients.keys())})
         return(ret)
 
@@ -316,16 +316,16 @@ class steuerung(Resource):
         #TODO
         return()
 
-    def get_timer(self, room):
+    def get_room_timer(self, room):
         """ function to read the timer settings per room
 
         """
         ret = json.dumps(self.Timer.get_timer_list(room))
         return(ret)
 
-    def set_timer(self, room):
+    def set_room_timer(self, room):
         #TODO
-        return()
+        return(json.dumps({"answer":"setRoomTimer", "error": "Not implemented yet"}))
 
     def reload_timer(self):
         """ This function reloads the timer file
@@ -333,6 +333,12 @@ class steuerung(Resource):
         """
         self.Timer = timer(self.timerfile)
         return(json.dumps({"answer":"Timer file reloaded"}))
+
+    def get_timer(self):
+        """ This function returns the timer file
+
+        """
+        return(json.dumps({"answer":"getTimer", "timerfile": self.Timer.get_all_timer_list()}))
 
     def get_alive(self):
         """ function to see, if we are alive
@@ -357,8 +363,11 @@ class steuerung(Resource):
         """ Setting mode of room
 
         """
-        self.clients[room]["setMode"] = mode
-        return(json.dumps({"answer":"setRoomMode","room":room,"mode":self.clients[room]["setMode"]}))
+        if mode in ["on", "off", "auto"]:
+            self.clients[room]["setMode"] = mode
+            return(json.dumps({"answer":"setRoomMode","room":room,"mode":self.clients[room]["setMode"]}))
+        else:
+            return(json.dumps({"answer":"setRoomMode","error":"setMode"}))
 
     def toggle_room_mode(self, room):
         """ Setting mode of room to the next one
@@ -377,10 +386,10 @@ class steuerung(Resource):
 
 
     def get_room_shorttimer(self, room):
-        """ Returns value of room's shorttimer to overrider Mode settings for a defined time in seconds
+        """ Returns value of room's shorttimer to override Mode settings for a defined time in seconds
 
         """
-        return(json.dumps(self.clients[room]["Shorttimer"]))
+        return(json.dumps({"answer":"getRoomShortTimer", "ShortTimer": self.clients[room]["Shorttimer"], "Status":self.clients[room]["Status"], "ShorttimerMode":self.clients[room]["ShorttimerMode"]}))
 
     def set_room_shorttimer(self, room, time, mode):
         """ Sets value of room's shorttimer, sets mode accordingly
@@ -388,14 +397,21 @@ class steuerung(Resource):
 
         """
         try:
-            self.clients[room]["Shorttimer"] = int(time) + self.clients[room]["Shorttimer"]
-            self.clients[room]["ShorttimerMode"] = "run"
-            self.clients[room]["Mode"] = mode
-            logger.info("Setting shorttimer for room %s to %ds: %s", room, int(time), mode)
-            self.set_status()
-            return(json.dumps(self.clients[room]["Shorttimer"]))
+            time = int(time)
         except:
-            return('{"answer":"error","command":"Shorttimer"}')
+            return('{"answer":"setRoomShortTimer","error":"time must be an integer"}')
+        if mode not in ["on", "off"]:
+            return('{"answer":"setRoomShortTimer","error":"mode must be on or off"}')
+        else:
+            try:
+                self.clients[room]["Shorttimer"] = time + self.clients[room]["Shorttimer"]
+                self.clients[room]["ShorttimerMode"] = "run"
+                self.clients[room]["Mode"] = mode
+                logger.info("Setting shorttimer for room %s to %ds: %s", room, time, mode)
+                self.set_status()
+                return self.get_room_shorttimer(room)
+            except:
+                return '{"answer":"setRoomShortTimer","error":"Unexpected error"}'
 
     def reset_room_shorttimer(self, room):
         """ Reets value of room's shorttimer, sets mode accordingly
@@ -412,7 +428,7 @@ class steuerung(Resource):
             self.set_status()
             return(json.dumps(self.clients[room]["Shorttimer"]))
         except:
-            return('{"answer":"error","command":"Shorttimer"}')
+            return('{"answer":"resetRoomShortTimer","error":"Unexpected error"}')
 
     def get_room_norm_temp(self, room):
         """ Returns normal set temperature of room 
@@ -428,10 +444,13 @@ class steuerung(Resource):
         """
         try:
             self.clients[room]["normTemp"] = float(temp)
+        except:
+            return('{"answer":"setRoomNormTemp", "error": "temp must be of type float"}')
+        try:
             logger.info("Setting normTemp for room %s to %s°C", room, temp)
             return(json.dumps({"room" : room, "normTemp" : self.clients[room]["normTemp"]}))
         except:
-            return('{"answer":"error","command":"setRoomNormTemp"}')
+            return('{"answer":"setRoomNormTemp", "error": "Unexpected error"}')
 
     def get_counter(self):
         try:
