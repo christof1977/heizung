@@ -22,17 +22,17 @@ api = Api(app)
 
 #status_schema = StatusSchema()
 
+steuerung = steuerung()
+api.add_resource(Alive, '/', resource_class_kwargs={'steuerung': steuerung})
+api.add_resource(Status, '/status', resource_class_kwargs={'steuerung': steuerung})
+api.add_resource(Roomlist, '/room', resource_class_kwargs={'steuerung': steuerung})
+api.add_resource(RoomMode, '/room/<string:room>/mode', resource_class_kwargs={'steuerung': steuerung})
+api.add_resource(RoomTimer, '/room/<string:room>/timer', resource_class_kwargs={'steuerung': steuerung})
+api.add_resource(RoomShortTimer, '/room/<string:room>/shorttimer', resource_class_kwargs={'steuerung': steuerung})
+api.add_resource(RoomNormTemp, '/room/<string:room>/normtemp', resource_class_kwargs={'steuerung': steuerung})
+api.add_resource(Timer, '/room/timer', resource_class_kwargs={'steuerung': steuerung})
 
 if __name__ == "__main__":
-    steuerung = steuerung()
-    api.add_resource(Alive, '/', resource_class_kwargs={'steuerung': steuerung})
-    api.add_resource(Status, '/status', resource_class_kwargs={'steuerung': steuerung})
-    api.add_resource(Roomlist, '/room', resource_class_kwargs={'steuerung': steuerung})
-    api.add_resource(RoomMode, '/room/<string:room>/mode', resource_class_kwargs={'steuerung': steuerung})
-    api.add_resource(RoomTimer, '/room/<string:room>/timer', resource_class_kwargs={'steuerung': steuerung})
-    api.add_resource(RoomShortTimer, '/room/<string:room>/shorttimer', resource_class_kwargs={'steuerung': steuerung})
-    api.add_resource(RoomNormTemp, '/room/<string:room>/normtemp', resource_class_kwargs={'steuerung': steuerung})
-    api.add_resource(Timer, '/room/timer', resource_class_kwargs={'steuerung': steuerung})
     threading.Thread(target=lambda: app.run(host=host_name, port=port, debug=True, use_reloader=False)).start()
     steuerung.run()
     
