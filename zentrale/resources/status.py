@@ -13,7 +13,7 @@ class Alive(Resource):
 class Status(Resource):
     def __init__(self, **kwargs):
         self.steuerung = kwargs['steuerung']
-        self.rooms = self.get_rooms()
+        self.roomlist = self.get_rooms()
 
     def get_rooms(self):
         ret = json.loads(self.steuerung.get_rooms())
@@ -21,7 +21,7 @@ class Status(Resource):
 
     def get(self):
         room = request.args.get("room") #retrieve args from query string
-        if room and room in self.rooms:
+        if room and room in self.roomlist:
             return json.loads(self.steuerung.get_room_status(room))
         else:
             return json.loads(self.steuerung.get_status())
