@@ -74,8 +74,6 @@ class timer(object):
         return(timer_list)
     
     def get_all_timer_list(self):
-        for client in self.tl:
-            print(json.dumps(self.tl[client]["settings"],indent=4))
         return(self.tl)
 
     def get_recent_set(self, room):
