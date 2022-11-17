@@ -9,7 +9,7 @@ from steuerung import steuerung
 #from marshmallow import Schema, fields
 
 from resources.status import Status, Alive
-from resources.room import Roomlist, RoomMode, RoomTimer, RoomShortTimer, RoomNormTemp, Timer
+from resources.room import Roomlist, RoomMode, RoomStatus, RoomTimer, RoomShortTimer, RoomNormTemp, Timer
 
 #class StatusSchema(Schema):
 #    room = fields.Str(required=False)
@@ -26,6 +26,7 @@ steuerung = steuerung()
 api.add_resource(Alive, '/', resource_class_kwargs={'steuerung': steuerung})
 api.add_resource(Status, '/status', resource_class_kwargs={'steuerung': steuerung})
 api.add_resource(Roomlist, '/room', resource_class_kwargs={'steuerung': steuerung})
+api.add_resource(RoomStatus, '/room/<string:room>', resource_class_kwargs={'steuerung': steuerung})
 api.add_resource(RoomMode, '/room/<string:room>/mode', resource_class_kwargs={'steuerung': steuerung})
 api.add_resource(RoomTimer, '/room/<string:room>/timer', resource_class_kwargs={'steuerung': steuerung})
 api.add_resource(RoomShortTimer, '/room/<string:room>/shorttimer', resource_class_kwargs={'steuerung': steuerung})
