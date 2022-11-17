@@ -240,7 +240,10 @@ class steuerung(Resource):
         """ function to return available rooms
 
         """
-        ret = json.dumps({"answer":"getRooms","available_rooms":self.clients})
+        keys = self.clients.keys()
+        #print(type(keys))
+        #print(list(keys))
+        ret = json.dumps({"answer":"getRooms","available_rooms":list(self.clients.keys())})
         return(ret)
 
     def get_room_status(self, room):
