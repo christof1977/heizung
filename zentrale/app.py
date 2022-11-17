@@ -8,10 +8,8 @@ from flask_restful import Resource, abort
 from steuerung import steuerung
 #from marshmallow import Schema, fields
 
-from resources.status import Status
-from resources.status import Alive
-from resources.room import Roomlist
-from resources.room import Mode
+from resources.status import Status, Alive
+from resources.room import Roomlist, RoomMode, RoomTimer, RoomShortTimer, RoomNormTemp, Timer
 
 #class StatusSchema(Schema):
 #    room = fields.Str(required=False)
@@ -30,7 +28,11 @@ if __name__ == "__main__":
     api.add_resource(Alive, '/', resource_class_kwargs={'steuerung': steuerung})
     api.add_resource(Status, '/status', resource_class_kwargs={'steuerung': steuerung})
     api.add_resource(Roomlist, '/room', resource_class_kwargs={'steuerung': steuerung})
-    api.add_resource(Mode, '/room/<string:room>', resource_class_kwargs={'steuerung': steuerung})
+    api.add_resource(RoomMode, '/room/<string:room>/mode', resource_class_kwargs={'steuerung': steuerung})
+    api.add_resource(RoomTimer, '/room/<string:room>/timer', resource_class_kwargs={'steuerung': steuerung})
+    api.add_resource(RoomShortTimer, '/room/<string:room>/shorttimer', resource_class_kwargs={'steuerung': steuerung})
+    api.add_resource(RoomNormTemp, '/room/<string:room>/normtemp', resource_class_kwargs={'steuerung': steuerung})
+    api.add_resource(Timer, '/room/timer', resource_class_kwargs={'steuerung': steuerung})
     threading.Thread(target=lambda: app.run(host=host_name, port=port, debug=True, use_reloader=False)).start()
     steuerung.run()
     
