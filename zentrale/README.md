@@ -5,7 +5,7 @@ Software zur Steuerung von Heizungsventilen, mittlerweile erweitert um die Steue
 ## Funktionen
 - Ansteuerung von Ventilen über Relais, Anzahl prinzipiell nur die die Anzahl der Ausgänge begrenzt
 - Zeitsteuerung über Timerfile
-- Jeder Zimmer kann aus einem oder mehreren Heizkreisen bestehen
+- Jedes Zimmer kann aus einem oder mehreren Heizkreisen bestehen
 - Status eine zentralen Umwälzpumpe kann abgefragt werden, um die Regelung zu aktivieren bzw. deaktivieren
 - Temperaturregelung über einfachen Zweipunktregler
 - Aussentemperaturgeführte Vorlauftemperaturregelung (bei vorhandenem Stellventil, Ansteuerung über DRV8830 I2C Motorsteuerung)
