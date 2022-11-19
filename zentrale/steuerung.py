@@ -234,6 +234,8 @@ class steuerung(Resource):
             ret = self.set_room_shorttimer(jcmd['Room'],jcmd['Time'],jcmd['Mode'])
         elif(jcmd['command'] == "resetRoomShortTimer"):
             ret = self.reset_room_shorttimer(jcmd['Room'])
+        elif(jcmd['command'] == "getRoomTemp"):
+            ret = self.get_room_temp(jcmd['Room'])
         elif(jcmd['command'] == "getRoomNormTemp"):
             ret = self.get_room_norm_temp(jcmd['Room'])
         elif(jcmd['command'] == "setRoomNormTemp"):
@@ -429,6 +431,12 @@ class steuerung(Resource):
             return(json.dumps(self.clients[room]["Shorttimer"]))
         except:
             return('{"answer":"resetRoomShortTimer","error":"Unexpected error"}')
+
+    def get_room_temp(self, room):
+        """ Returns measured temperature of room 
+
+        """
+        return(json.dumps({"room" : room, "isTemp" : self.clients[room]["isTemp"]}))
 
     def get_room_norm_temp(self, room):
         """ Returns normal set temperature of room 

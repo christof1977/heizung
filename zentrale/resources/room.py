@@ -11,7 +11,7 @@ class Roomlist(Resource):
 
 
 
-class RoomStatus(Resource):
+class RoomInfo(Resource):
     def __init__(self, **kwargs):
         self.steuerung = kwargs['steuerung']
         self.roomlist = json.loads(self.steuerung.get_rooms())["available_rooms"]
@@ -20,8 +20,18 @@ class RoomStatus(Resource):
         if room and room in self.roomlist:
             return json.loads(self.steuerung.get_room_status(room))
         else:
-            return {"answer": "getRoomStatus", "error": "No such room"}
+            return {"answer": "getRoomInfo", "error": "No such room"}
 
+class RoomStatus(Resource):
+    def __init__(self, **kwargs):
+        self.steuerung = kwargs['steuerung']
+        self.roomlist = json.loads(self.steuerung.get_rooms())["available_rooms"]
+
+    def get(self, room):
+        if room and room in self.roomlist:
+            return {"answer":"getRoomStatus","room":room,"status":json.loads(self.steuerung.get_room_status(room))["status"]["Status"]}
+        else:
+            return {"answer": "getRoomStatus", "error": "No such room"}
 
 class RoomMode(Resource):
     def __init__(self, **kwargs):
@@ -87,6 +97,18 @@ class RoomShortTimer(Resource):
                 return {"answer": "RoomShortTimer", "error": "No such action"}
         else:
             return {"answer": "RoomShortTimer", "error": "No such room"}
+
+
+class RoomTemp(Resource):
+    def __init__(self, **kwargs):
+        self.steuerung = kwargs['steuerung']
+        self.roomlist = json.loads(self.steuerung.get_rooms())["available_rooms"]
+
+    def get(self, room):
+        if room in self.roomlist:
+            return json.loads(self.steuerung.get_room_temp(room))
+        else:
+            return {"answer": "RoomTemp", "error": "No such room"}
 
 class RoomNormTemp(Resource):
     def __init__(self, **kwargs):
