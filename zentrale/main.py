@@ -102,7 +102,7 @@ class steuerung(threading.Thread):
         # Decode the message payload from Bytes to String.
         payload = msg.payload.decode('UTF-8')
         if(msg.topic == "Garage/Tor/Kommando"):
-            if(payload == "UP"):
+            if(payload == "auf"):
                 self.set_tor("auf")
             else:
                 self.set_tor("zu")
