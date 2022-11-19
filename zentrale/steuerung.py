@@ -19,7 +19,10 @@ import urllib
 import urllib.request
 import logging
 import select
+<<<<<<< HEAD
 import paho.mqtt.client as mqtt
+=======
+>>>>>>> 5605debb5b569a33bba94d64b0b01084aacf3fb3
 import paho.mqtt.publish as publish
 import prctl
 
@@ -690,6 +693,7 @@ class steuerung(Resource):
             elif(status == 0):
                 self.garagentor = "auf"
                 self.mqttclientgarage.publish("Garage/Tor/Zustand", self.garagentor)
+                publish.single("Garage/Tor", self.garagentor, hostname=self.mqtthost, client_id=self.hostname,auth = {"username":self.mqttuser, "password":self.mqttpass})
                 logger.debug(self.garagentor)
         except Exception as e:
             logging.error(e)
