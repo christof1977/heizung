@@ -305,7 +305,7 @@ class steuerung(Resource):
 
         """
         try:
-            logger.info(self.clients[room])
+            logger.debug(self.clients[room])
             ret = json.dumps({"answer":"getRoomStatus","room":room,"status":self.clients[room]})
         except:
             ret = json.dumps({"answer":"room does not exist"})
