@@ -19,10 +19,7 @@ import urllib
 import urllib.request
 import logging
 import select
-<<<<<<< HEAD
 import paho.mqtt.client as mqtt
-=======
->>>>>>> 5605debb5b569a33bba94d64b0b01084aacf3fb3
 import paho.mqtt.publish as publish
 import prctl
 
