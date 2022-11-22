@@ -263,12 +263,14 @@ class steuerung(Resource):
             return("Error")
 
     def get_tor(self):
-        """ This function returns the state of the garage door if available. The return format is a JSON-String.
-        Then function can be called via JSON-Command-String: '{"command" : "getTor"}'
+        """ This function returns the state of the garage door if available. The return format is a JSON-String.  
+        The function can be called via JSON-Command-String: ```'{"command" : "getTor"}'```
         
+        ```json
         open: '{"Answer":"getTor","Result":"auf"}'
         closed: '{"Answer":"getTor","Result":"zu"}'
         error: '{"Answer":"getTor","Result":"Error","Value":"Tor? Welches Tor?"}'
+        ```
 
         """
 
