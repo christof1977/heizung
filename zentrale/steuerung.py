@@ -266,7 +266,7 @@ class steuerung(Resource):
         """ This function returns the state of the garage door if available. The return format is a JSON-String.  
         The function can be called via JSON-Command-String: ```'{"command" : "getTor"}'```
         
-        ```json
+        ```python
         open: '{"Answer":"getTor","Result":"auf"}'
         closed: '{"Answer":"getTor","Result":"zu"}'
         error: '{"Answer":"getTor","Result":"Error","Value":"Tor? Welches Tor?"}'
@@ -285,13 +285,13 @@ class steuerung(Resource):
         The return of the function is either a success or a error message.
         
         Control commands look as follows:
-        ```json
+        ```python
         open: '{"command" : "setTor" , "Request":"auf"}'
         closed: '{"command" : "setTor" , "Request":"zu"}'
         ```
         
         Answer:
-        ```json
+        ```python
         Success: '{"Answer":"setTor","Request":"xxx","Result":"Success"}'
         Error: '{"Answer":"setTor","Request":"xxx","Result":"Error"})'
         No door in system: '{"Answer":"setTor","Request":"xxx","Result":"Error","Value":"Tor? Welches Tor?"}'
@@ -316,14 +316,15 @@ class steuerung(Resource):
         return(ret)
 
     def get_rooms(self):
-        """ function to return available rooms
+        """ Return available rooms
+        
         Command:
-        ```json
+        ```python
         '{"command" : "getRooms"}'
         ```
         
         Answer:
-        ```json
+        ```python
         '{"answer":"getRooms","available_rooms":["Z1", "Z2"]}'
         ```
 
@@ -333,7 +334,40 @@ class steuerung(Resource):
         return(ret)
 
     def get_room_status(self, room):
-        """ function to get status status of a single room
+        """ Returns status of a single room
+        
+        Command:
+        ```python
+        '{"command" : "getRoomStatus", "Room" : "LivingRoom"}'
+        ```
+        
+        Answer:
+        ```python
+        {
+        "answer": "getRoomStatus",
+        "room": "LivingRoom",
+        "status": {
+            "Relais": [
+                18,
+                10
+            ],
+            "Status": "on",
+            "Mode": "auto",
+            "setMode": "auto",
+            "normTemp": 21.5,
+            "isTemp": 18,
+            "Shorttimer": 0,
+            "ShorttimerMode": "off",
+            "Timer": "on",
+            "Name": "Wohnzimmer"
+            }
+        }
+        ```
+        
+        Answer in case of error:
+        ```python
+        '{"answer":"room does not exist"}'
+        ```
 
         """
         try:
@@ -345,19 +379,35 @@ class steuerung(Resource):
 
     def set_room_status(self, room):
         """ function to set status status of a single room
+        
+        not implemented yet, is it needed at all?
 
         """
         #TODO
         return()
 
     def get_room_timer(self, room):
-        """ function to read the timer settings per room
+        """ Returns a room's timer settings
+        
+        Command:  
+        ```python
+        '{"command" : "getRoomTimer", "Room" : "LivingRoom"}'
+        ```
+        
+        Answer: TODO
 
         """
         ret = json.dumps(self.Timer.get_timer_list(room))
         return(ret)
 
     def set_room_timer(self, room):
+        """ Sets a room's timer
+        
+        Not implemented yet.
+
+        """
+        
+        
         #TODO
         return(json.dumps({"answer":"setRoomTimer", "error": "Not implemented yet"}))
 
