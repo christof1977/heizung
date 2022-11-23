@@ -20,53 +20,7 @@ Zusatz:
 - Auslesen eines Garagentormelderkontakts
 - Ansteuerung (auf/zu) eines Garagentors
 
+Die Dokumentation der Funktionen sowie der JSON-Kommands findet sich unter [Steuerung](steuerung.md)  
+Die REST-API ist unter [REST-API](restapi.md) beschrieben.
 
-## JSON-API
 
-### get_status()
-Returns status of system including set temperature, actual temperature and on/off per room
-
-### get_alive()
-Check, if system is alive, returns {"answer":"Freilich"}
-
-### get_rooms()
-
-### get_room_timer()
-
-### set_room_timer()
-
-### reload_timer()
-
-### get_timer()
-
-### get_room_status()
-
-### set_room_status()
-
-### get_room_mode()
-
-### set_room_mode()
-
-### toggle_room_mode()
-
-### get_room_shorttimer()
-
-### set_room_shorttimer()
-
-### reset_room_shorttimer()
-
-### get_room_temp()
-
-### get_room_norm_temp()
-
-### set_room_norm_temp()
-
-### get_counter_values()
-
-### get_counter()
-
-### set_tor()
-
-### get_tor()
- 
-## REST-API

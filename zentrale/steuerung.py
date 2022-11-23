@@ -273,7 +273,6 @@ class steuerung(Resource):
         ```
 
         """
-
         ret = self._get_tor()
         if(ret == "Error"):
             ret = json.dumps({"Answer":"getTor","Result":"Error","Value":"Tor? Welches Tor?"})
@@ -283,8 +282,21 @@ class steuerung(Resource):
 
     def set_tor(self, val):
         """ This function triggers the switch of the Garagentor. When it's open, it closes and vice versa.
-        The return of the function is either a success or a error message
-
+        The return of the function is either a success or a error message.
+        
+        Control commands look as follows:
+        ```json
+        open: '{"command" : "setTor" , "Request":"auf"}'
+        closed: '{"command" : "setTor" , "Request":"zu"}'
+        ```
+        
+        Answer:
+        ```json
+        Success: '{"Answer":"setTor","Request":"xxx","Result":"Success"}'
+        Error: '{"Answer":"setTor","Request":"xxx","Result":"Error"})'
+        No door in system: '{"Answer":"setTor","Request":"xxx","Result":"Error","Value":"Tor? Welches Tor?"}'
+        Door already in requested state: '{"Answer":"setTor","Request":"xxx","Result":"Tor ist doch schon xxx, Doldi."}'
+        ```
         """
         if self.garagenkontakt > 0:
             if(val ==  self._get_tor()):
@@ -305,6 +317,15 @@ class steuerung(Resource):
 
     def get_rooms(self):
         """ function to return available rooms
+        Command:
+        ```json
+        '{"command" : "getRooms"}'
+        ```
+        
+        Answer:
+        ```json
+        '{"answer":"getRooms","available_rooms":["Z1", "Z2"]}'
+        ```
 
         """
         keys = self.clients.keys()

@@ -1,3 +1,34 @@
+# Table of Contents
+
+* [steuerung](#steuerung)
+  * [steuerung](#steuerung.steuerung)
+    * [get\_oekofen\_pumpe](#steuerung.steuerung.get_oekofen_pumpe)
+    * [get\_tor](#steuerung.steuerung.get_tor)
+    * [set\_tor](#steuerung.steuerung.set_tor)
+    * [get\_rooms](#steuerung.steuerung.get_rooms)
+    * [get\_room\_status](#steuerung.steuerung.get_room_status)
+    * [set\_room\_status](#steuerung.steuerung.set_room_status)
+    * [get\_room\_timer](#steuerung.steuerung.get_room_timer)
+    * [reload\_timer](#steuerung.steuerung.reload_timer)
+    * [get\_timer](#steuerung.steuerung.get_timer)
+    * [get\_alive](#steuerung.steuerung.get_alive)
+    * [get\_status](#steuerung.steuerung.get_status)
+    * [get\_room\_mode](#steuerung.steuerung.get_room_mode)
+    * [set\_room\_mode](#steuerung.steuerung.set_room_mode)
+    * [toggle\_room\_mode](#steuerung.steuerung.toggle_room_mode)
+    * [get\_room\_shorttimer](#steuerung.steuerung.get_room_shorttimer)
+    * [set\_room\_shorttimer](#steuerung.steuerung.set_room_shorttimer)
+    * [reset\_room\_shorttimer](#steuerung.steuerung.reset_room_shorttimer)
+    * [get\_room\_temp](#steuerung.steuerung.get_room_temp)
+    * [get\_room\_norm\_temp](#steuerung.steuerung.get_room_norm_temp)
+    * [set\_room\_norm\_temp](#steuerung.steuerung.set_room_norm_temp)
+    * [get\_counter\_values](#steuerung.steuerung.get_counter_values)
+    * [short\_timer](#steuerung.steuerung.short_timer)
+    * [timer\_operation](#steuerung.steuerung.timer_operation)
+    * [broadcast\_value](#steuerung.steuerung.broadcast_value)
+    * [set\_pumpe](#steuerung.steuerung.set_pumpe)
+    * [set\_status](#steuerung.steuerung.set_status)
+
 <a id="steuerung"></a>
 
 # steuerung
@@ -47,7 +78,21 @@ def set_tor(val)
 ```
 
 This function triggers the switch of the Garagentor. When it's open, it closes and vice versa.
-The return of the function is either a success or a error message
+The return of the function is either a success or a error message.
+
+Control commands look as follows:
+```json
+open: '{"command" : "setTor" , "Request":"auf"}'
+closed: '{"command" : "setTor" , "Request":"zu"}'
+```
+
+Answer:
+```json
+Success: '{"Answer":"setTor","Request":"xxx","Result":"Success"}'
+Error: '{"Answer":"setTor","Request":"xxx","Result":"Error"})'
+No door in system: '{"Answer":"setTor","Request":"xxx","Result":"Error","Value":"Tor? Welches Tor?"}'
+Door already in requested state: '{"Answer":"setTor","Request":"xxx","Result":"Tor ist doch schon xxx, Doldi."}'
+```
 
 <a id="steuerung.steuerung.get_rooms"></a>
 
@@ -58,6 +103,15 @@ def get_rooms()
 ```
 
 function to return available rooms
+Command:
+```json
+'{"command" : "getRooms"}'
+```
+
+Answer:
+```json
+'{"answer":"getRooms","available_rooms":["Z1", "Z2"]}'
+```
 
 <a id="steuerung.steuerung.get_room_status"></a>
 
