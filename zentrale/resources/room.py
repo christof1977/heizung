@@ -9,8 +9,6 @@ class Roomlist(Resource):
     def get(self):
         return json.loads(self.steuerung.get_rooms())
 
-
-
 class RoomInfo(Resource):
     def __init__(self, **kwargs):
         self.steuerung = kwargs['steuerung']
@@ -51,7 +49,6 @@ class RoomMode(Resource):
                 return json.loads(self.steuerung.toggle_room_mode(room))
             else:
                 return json.loads(self.steuerung.set_room_mode(room, mode))
-
         else:
             return {"answer": "getRoomMode", "error": "No such room"}
 
@@ -97,7 +94,6 @@ class RoomShortTimer(Resource):
                 return {"answer": "RoomShortTimer", "error": "No such action"}
         else:
             return {"answer": "RoomShortTimer", "error": "No such room"}
-
 
 class RoomTemp(Resource):
     def __init__(self, **kwargs):
