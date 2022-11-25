@@ -37,6 +37,9 @@ install:	## install project in editable mode
 ## ⁣
 ## Helpers:
 
+doc:
+	./makedocs.sh 
+
 clean:		## Remove generated files (env, docs, ...)
 	rm -rf $(ENV)
 	rm -rf docs/_build/*.*

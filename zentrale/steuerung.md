@@ -180,12 +180,15 @@ def get_room_timer(room)
 
 Returns a room's timer settings
 
-Command:  
+Command: 
 ```python
 '{"command" : "getRoomTimer", "Room" : "LivingRoom"}'
 ```
 
-Answer: TODO
+Answer: 
+```python
+{"0": [["5:15", "22:00"], ["on", "off"]], "3": [["5:15", "22:00"], ["on", "off"]], "4": [["5:15", "22:00"], ["on", "off"]], "1": [["6:30", "22:00"], ["on", "off"]], "2": [["6:30", "22:00"], ["on", "off"]], "5": [["8:00", "22:00"], ["on", "off"]], "6": [["8:00", "22:00"], ["on", "off"]]}
+```
 
 <a id="steuerung.steuerung.set_room_timer"></a>
 
@@ -199,6 +202,11 @@ Sets a room's timer
 
 Not implemented yet.
 
+Command:
+```python
+'{"command" : "setRoomTimer", "Room" : "LivingRoom"}'
+```
+
 <a id="steuerung.steuerung.reload_timer"></a>
 
 #### reload\_timer
@@ -207,7 +215,17 @@ Not implemented yet.
 def reload_timer()
 ```
 
-This function reloads the timer file
+This function reloads the timer file, no arguments required.
+
+Command:
+```python
+'{"command" : "reloadTimer"}'
+```
+
+Answer:
+```python
+'{"answer":"Timer file reloaded"}'
+```
 
 <a id="steuerung.steuerung.get_timer"></a>
 
@@ -217,7 +235,12 @@ This function reloads the timer file
 def get_timer()
 ```
 
-This function returns the timer file
+This function returns the timer file as json string
+
+Command:
+```python
+'{"command" : "getTimer"}'
+```
 
 <a id="steuerung.steuerung.get_alive"></a>
 
@@ -229,6 +252,16 @@ def get_alive()
 
 function to see, if we are alive
 
+Command:
+```python
+'{"command" : "getAlive"}'
+```
+
+Answer:
+```python
+'{"name":"hostname","answer":"Freilich"}'
+```
+
 <a id="steuerung.steuerung.get_status"></a>
 
 #### get\_status
@@ -238,6 +271,47 @@ def get_status()
 ```
 
 function to determine status of system
+
+Command:
+```python
+'{"command" : "getStatus"}'
+```
+
+Answer:
+```python
+'{
+"WZ": {
+    "Relais": [
+        18,
+        10
+    ],
+    "Status": "off",
+    "Mode": "auto",
+    "setMode": "auto",
+    "setWindow": "auto",
+    "normTemp": 21,
+    "isTemp": 18,
+    "Shorttimer": 0,
+    "ShorttimerMode": "off",
+    "Timer": "off",
+    "Name": "Wohnzimmer"
+},
+"SZ": {
+    "Relais": [
+        27
+    ],
+    "Status": "off",
+    "Mode": "auto",
+    "setMode": "auto",
+    "setWindow": "auto",
+    "normTemp": 21,
+    "isTemp": 18,
+    "Shorttimer": 0,
+    "ShorttimerMode": "off",
+    "Timer": "off",
+    "Name": "Schlafzimmer"
+}'
+```
 
 <a id="steuerung.steuerung.get_room_mode"></a>
 
@@ -249,6 +323,18 @@ def get_room_mode(room)
 
 Returning mode of room
 
+Command:
+```python
+'{"command" : "getRoomMode", "room" : "WZ"}'
+```
+
+Answer:
+'{
+    "answer": "getRoomMode",
+    "room": "WZ",
+    "mode": "auto"
+}'
+
 <a id="steuerung.steuerung.set_room_mode"></a>
 
 #### set\_room\_mode
@@ -259,6 +345,25 @@ def set_room_mode(room, mode)
 
 Setting mode of room
 
+Set the room to one of the following modes:
+- on:           on
+- off:          off
+- auto:         timer mode
+- window_open:  off, previous mode is stored
+- window_close: rest to mode before window_open
+
+Command:
+```python
+'{"command" : "setRoomMode", "room" : "WZ", "mode" : "on/off/auto/window_open/window_close"}'
+```
+
+Answer:
+'{
+    "answer": "setRoomMode",
+    "room": "WZ",
+    "mode": "auto"
+}'
+
 <a id="steuerung.steuerung.toggle_room_mode"></a>
 
 #### toggle\_room\_mode
@@ -267,7 +372,15 @@ Setting mode of room
 def toggle_room_mode(room)
 ```
 
-Setting mode of room to the next one
+Setting mode of room to the next one (off -> on -> auto -> off -> ...)
+
+Command:
+```python
+'{"command" : "toggleRoomMode", "room" : "WZ"}'
+```
+
+Answer:
+'{"answer": "toggleRoomMode", "room": "AZ", "mode": "auto"}'
 
 <a id="steuerung.steuerung.get_room_shorttimer"></a>
 
@@ -277,7 +390,18 @@ Setting mode of room to the next one
 def get_room_shorttimer(room)
 ```
 
-Returns value of room's shorttimer to override Mode settings for a defined time in seconds
+Returns value of room's shorttimer to override mode settings for a defined time in seconds
+
+Command:
+```python
+'{"command" : "getRoomShortTime", "room" : "WZ"}'
+```
+
+Answer:
+'{  "answer": "getRoomShortTimer",
+    "ShortTimer": 0,
+    "Status": "off",
+    "ShorttimerMode": "off"}'
 
 <a id="steuerung.steuerung.set_room_shorttimer"></a>
 
@@ -289,6 +413,23 @@ def set_room_shorttimer(room, time, mode)
 
 Sets value of room's shorttimer, sets mode accordingly
 After setting, set_status is called to apply change immediately
+
+Command:
+```python
+'{"command" : "setRoomShortTimer",
+  "Room" : "WZ",
+  "Mode": "on"
+  "Time" : "60" }'
+```
+
+Answer:
+{ "answer": "getRoomShortTimer",
+  "ShortTimer": 60,
+  "Status": "on",
+  "ShorttimerMode": "run"}
+
+Answer in error case:
+'{"answer":"setRoomShortTimer","error":"Unexpected error"}'
 
 <a id="steuerung.steuerung.reset_room_shorttimer"></a>
 
