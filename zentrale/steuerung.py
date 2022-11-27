@@ -97,6 +97,7 @@ class steuerung(Resource):
             # Finally, process messages until a `client.disconnect()` is called.
             self.mqttclientgarage.loop_start()
         self.garagenmeldung(self.garagenmelder)
+        self.run()
 
     # The callback for when the client connects to the broker.
     def on_mqtt_connect(self, client, userdata, flags, rc):
@@ -646,6 +647,9 @@ class steuerung(Resource):
             self.mixer_addr = hex(int(self.config['BASE']['Mischer'],16))
             logger.info(self.mixer_addr)
             self.mixer_sens = self.config['BASE']['MischerSens']
+            self.sensorik["VorlaufSoll"] = {}
+            self.sensorik["VorlaufSoll"]["Type"] = "Temperatur"
+            self.sensorik["VorlaufSoll"]["ID"] = "ff_temp_target"
         except:
             self.mixer_addr = -1
             self.mixer_sens = -1
@@ -704,12 +708,15 @@ class steuerung(Resource):
             logging.error(e)
 
     def get_sensor_values(self):
+        logger.debug(self.sensorik)
         for sensor in self.sensorik:
             if(self.sensorik[sensor]["ID"] in self.w1_slaves):
                 val = round(self.w1.getValue(self.sensorik[sensor]["ID"]),1)
-                publish.single(self.name + "/" + sensor + "/" + self.sensorik[sensor]["Type"], val, hostname=self.mqtthost, client_id=self.hostname,auth = {"username":self.mqttuser, "password":self.mqttpass})
                 if(sensor in self.clients):
                     self.clients[sensor]["isTemp"] = val
+            if(self.sensorik[sensor]["ID"] == "ff_temp_target"):
+                val = self.mix.ff_temp_target
+            publish.single(self.name + "/" + sensor + "/" + self.sensorik[sensor]["Type"], val, hostname=self.mqtthost, client_id=self.hostname,auth = {"username":self.mqttuser, "password":self.mqttpass})
 
     def broadcast_value(self):
         '''
@@ -893,7 +900,9 @@ class steuerung(Resource):
         while True:
             try:
                 if self.mixer_sens in self.sensorik:
+                    logger.debug(self.w1.getValue(self.sensorik[self.mixer_sens]["ID"]))
                     self.mix.ff_temp_is = self.w1.getValue(self.sensorik[self.mixer_sens]["ID"])
+                    logger.debug(self.mix.ff_temp_is)
                 time.sleep(5)
             except KeyboardInterrupt: # CTRL+C exit
                 self.stop()
