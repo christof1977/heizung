@@ -20,23 +20,16 @@ Zusatz:
 - Auslesen eines Garagentormelderkontakts
 - Ansteuerung (auf/zu) eines Garagentors
 
+Die Dokumentation der Funktionen sowie der JSON-Kommands findet sich unter [Steuerung](steuerung.md).
+Die REST-API ist unter [REST-API](restapi.md) beschrieben.
 
-## JSON-API
+## TODO
+- REST-API für Garagentor erstellen
+- MQTT für Garagentor entfernen
+- Abfrage für Mischertemperaturen
+- Heizkurve für Mischer setzen
+- BME280 einbinden
+- Temperaturen über MQTT erhalten
+- Setzen von Timerregeln
+- Schreiben in Timerfiles
 
-### getStatus
-Returns status of system including set temperature, actual temperature and on/off per room
-
-### getAlive
-Check, if system is alive, returns {"answer":"Freilich"}
-
-### getRooms
-
-### getRoomStatus
-
-### setRoomStatus
-
-### getTimer
-
-### setTimer
- 
-## REST-API

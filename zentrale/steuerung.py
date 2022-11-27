@@ -264,6 +264,16 @@ class steuerung(Resource):
             return("Error")
 
     def get_tor(self):
+        """ This function returns the state of the garage door if available. The return format is a JSON-String.  
+        The function can be called via JSON-Command-String: ```'{"command" : "getTor"}'```
+        
+        ```python
+        open: '{"Answer":"getTor","Result":"auf"}'
+        closed: '{"Answer":"getTor","Result":"zu"}'
+        error: '{"Answer":"getTor","Result":"Error","Value":"Tor? Welches Tor?"}'
+        ```
+
+        """
         ret = self._get_tor()
         if(ret == "Error"):
             ret = json.dumps({"Answer":"getTor","Result":"Error","Value":"Tor? Welches Tor?"})
@@ -273,8 +283,21 @@ class steuerung(Resource):
 
     def set_tor(self, val):
         """ This function triggers the switch of the Garagentor. When it's open, it closes and vice versa.
-        The return of the function is either a success or a error message
-
+        The return of the function is either a success or a error message.
+        
+        Control commands look as follows:
+        ```python
+        open: '{"command" : "setTor" , "Request":"auf"}'
+        closed: '{"command" : "setTor" , "Request":"zu"}'
+        ```
+        
+        Answer:
+        ```python
+        Success: '{"Answer":"setTor","Request":"xxx","Result":"Success"}'
+        Error: '{"Answer":"setTor","Request":"xxx","Result":"Error"})'
+        No door in system: '{"Answer":"setTor","Request":"xxx","Result":"Error","Value":"Tor? Welches Tor?"}'
+        Door already in requested state: '{"Answer":"setTor","Request":"xxx","Result":"Tor ist doch schon xxx, Doldi."}'
+        ```
         """
         if self.garagenkontakt > 0:
             if(val ==  self._get_tor()):
@@ -294,7 +317,17 @@ class steuerung(Resource):
         return(ret)
 
     def get_rooms(self):
-        """ function to return available rooms
+        """ Return available rooms
+        
+        Command:
+        ```python
+        '{"command" : "getRooms"}'
+        ```
+        
+        Answer:
+        ```python
+        '{"answer":"getRooms","available_rooms":["Z1", "Z2"]}'
+        ```
 
         """
         keys = self.clients.keys()
@@ -302,7 +335,40 @@ class steuerung(Resource):
         return(ret)
 
     def get_room_status(self, room):
-        """ function to get status status of a single room
+        """ Returns status of a single room
+        
+        Command:
+        ```python
+        '{"command" : "getRoomStatus", "Room" : "LivingRoom"}'
+        ```
+        
+        Answer:
+        ```python
+        {
+        "answer": "getRoomStatus",
+        "room": "LivingRoom",
+        "status": {
+            "Relais": [
+                18,
+                10
+            ],
+            "Status": "on",
+            "Mode": "auto",
+            "setMode": "auto",
+            "normTemp": 21.5,
+            "isTemp": 18,
+            "Shorttimer": 0,
+            "ShorttimerMode": "off",
+            "Timer": "on",
+            "Name": "Wohnzimmer"
+            }
+        }
+        ```
+        
+        Answer in case of error:
+        ```python
+        '{"answer":"room does not exist"}'
+        ```
 
         """
         try:
@@ -314,37 +380,84 @@ class steuerung(Resource):
 
     def set_room_status(self, room):
         """ function to set status status of a single room
+        
+        not implemented yet, is it needed at all?
 
         """
         #TODO
         return()
 
     def get_room_timer(self, room):
-        """ function to read the timer settings per room
+        """ Returns a room's timer settings
+        
+        Command: 
+        ```python
+        '{"command" : "getRoomTimer", "Room" : "LivingRoom"}'
+        ```
+        
+        Answer: 
+        ```python
+        {"0": [["5:15", "22:00"], ["on", "off"]], "3": [["5:15", "22:00"], ["on", "off"]], "4": [["5:15", "22:00"], ["on", "off"]], "1": [["6:30", "22:00"], ["on", "off"]], "2": [["6:30", "22:00"], ["on", "off"]], "5": [["8:00", "22:00"], ["on", "off"]], "6": [["8:00", "22:00"], ["on", "off"]]}
+        ```
 
         """
         ret = json.dumps(self.Timer.get_timer_list(room))
         return(ret)
 
     def set_room_timer(self, room):
+        """ Sets a room's timer
+        
+        Not implemented yet.
+
+        Command:
+        ```python
+        '{"command" : "setRoomTimer", "Room" : "LivingRoom"}'
+        ```
+
+        """
         #TODO
         return(json.dumps({"answer":"setRoomTimer", "error": "Not implemented yet"}))
 
     def reload_timer(self):
-        """ This function reloads the timer file
+        """ This function reloads the timer file, no arguments required.
+
+        Command:
+        ```python
+        '{"command" : "reloadTimer"}'
+        ```
+
+        Answer:
+        ```python
+        '{"answer":"Timer file reloaded"}'
+        ```
 
         """
         self.Timer = timer(self.timerfile)
         return(json.dumps({"answer":"Timer file reloaded"}))
 
     def get_timer(self):
-        """ This function returns the timer file
+        """ This function returns the timer file as json string
+
+        Command:
+        ```python
+        '{"command" : "getTimer"}'
+        ```
 
         """
         return(json.dumps({"answer":"getTimer", "timerfile": self.Timer.get_all_timer_list()}))
 
     def get_alive(self):
         """ function to see, if we are alive
+
+        Command:
+        ```python
+        '{"command" : "getAlive"}'
+        ```
+
+        Answer:
+        ```python
+        '{"name":"hostname","answer":"Freilich"}'
+        ```
 
         """
         return(json.dumps({"name":self.hostname,"answer":"Freilich"}))
@@ -353,11 +466,63 @@ class steuerung(Resource):
     def get_status(self):
         """ function to determine status of system
 
+        Command:
+        ```python
+        '{"command" : "getStatus"}'
+        ```
+
+        Answer:
+        ```python
+        '{
+        "WZ": {
+            "Relais": [
+                18,
+                10
+            ],
+            "Status": "off",
+            "Mode": "auto",
+            "setMode": "auto",
+            "setWindow": "auto",
+            "normTemp": 21,
+            "isTemp": 18,
+            "Shorttimer": 0,
+            "ShorttimerMode": "off",
+            "Timer": "off",
+            "Name": "Wohnzimmer"
+        },
+        "SZ": {
+            "Relais": [
+                27
+            ],
+            "Status": "off",
+            "Mode": "auto",
+            "setMode": "auto",
+            "setWindow": "auto",
+            "normTemp": 21,
+            "isTemp": 18,
+            "Shorttimer": 0,
+            "ShorttimerMode": "off",
+            "Timer": "off",
+            "Name": "Schlafzimmer"
+        }'
+        ```
         """
         return(json.dumps(self.clients))
 
     def get_room_mode(self, room):
         """ Returning mode of room
+
+        Command:
+        ```python
+        '{"command" : "getRoomMode", "room" : "WZ"}'
+        ```
+
+        Answer:
+        '{
+            "answer": "getRoomMode",
+            "room": "WZ",
+            "mode": "auto"
+        }'
 
         """
         return(json.dumps({"answer":"getRoomMode","room":room,"mode":self.clients[room]["Mode"]}))
@@ -365,15 +530,51 @@ class steuerung(Resource):
     def set_room_mode(self, room, mode):
         """ Setting mode of room
 
+        Set the room to one of the following modes:
+        - on:           on
+        - off:          off
+        - auto:         timer mode
+        - window_open:  off, previous mode is stored
+        - window_close: rest to mode before window_open
+
+        Command:
+        ```python
+        '{"command" : "setRoomMode", "room" : "WZ", "mode" : "on/off/auto/window_open/window_close"}'
+        ```
+
+        Answer:
+        '{
+            "answer": "setRoomMode",
+            "room": "WZ",
+            "mode": "auto"
+        }'
+
         """
         if mode in ["on", "off", "auto"]:
             self.clients[room]["setMode"] = mode
-            return(json.dumps({"answer":"setRoomMode","room":room,"mode":self.clients[room]["setMode"]}))
+            ret = {"answer":"setRoomMode","room":room,"mode":self.clients[room]["setMode"]}
+        elif mode == "window_open":
+            self.clients[room]["windowMode"] = self.clients[room]["setMode"]
+            self.clients[room]["setMode"] = "off"
+            ret = {"answer":"setRoomMode","room":room,"mode":self.clients[room]["setMode"]}
+        elif mode == "window_close":
+            self.clients[room]["setMode"] = self.clients[room]["windowMode"]
+            ret = {"answer":"setRoomMode","room":room,"mode":self.clients[room]["setMode"]}
         else:
-            return(json.dumps({"answer":"setRoomMode","error":"setMode"}))
+            ret = {"answer":"setRoomMode","error":"setMode"}
+        logger.info(ret)
+        return(json.dumps(ret))
 
     def toggle_room_mode(self, room):
-        """ Setting mode of room to the next one
+        """ Setting mode of room to the next one (off -> on -> auto -> off -> ...)
+
+        Command:
+        ```python
+        '{"command" : "toggleRoomMode", "room" : "WZ"}'
+        ```
+
+        Answer:
+        '{"answer": "toggleRoomMode", "room": "AZ", "mode": "auto"}'
 
         """
         if(self.clients[room]["setMode"] == "off"):
@@ -384,12 +585,23 @@ class steuerung(Resource):
             mode = "off"
         else:
             mode = "auto"
-        ret = self.set_room_mode(room, mode)
-        return(ret)
-
+        ret = json.loads(self.set_room_mode(room, mode))
+        ret["answer"] = "toggleRoomMode"
+        return(json.dumps(ret))
 
     def get_room_shorttimer(self, room):
-        """ Returns value of room's shorttimer to override Mode settings for a defined time in seconds
+        """ Returns value of room's shorttimer to override mode settings for a defined time in seconds
+
+        Command:
+        ```python
+        '{"command" : "getRoomShortTime", "room" : "WZ"}'
+        ```
+
+        Answer:
+        '{  "answer": "getRoomShortTimer",
+            "ShortTimer": 0,
+            "Status": "off",
+            "ShorttimerMode": "off"}'
 
         """
         return(json.dumps({"answer":"getRoomShortTimer", "ShortTimer": self.clients[room]["Shorttimer"], "Status":self.clients[room]["Status"], "ShorttimerMode":self.clients[room]["ShorttimerMode"]}))
@@ -397,6 +609,23 @@ class steuerung(Resource):
     def set_room_shorttimer(self, room, time, mode):
         """ Sets value of room's shorttimer, sets mode accordingly
         After setting, set_status is called to apply change immediately
+
+        Command:
+        ```python
+        '{"command" : "setRoomShortTimer",
+          "Room" : "WZ",
+          "Mode": "on"
+          "Time" : "60" }'
+        ```
+
+        Answer:
+        { "answer": "getRoomShortTimer",
+          "ShortTimer": 60,
+          "Status": "on",
+          "ShorttimerMode": "run"}
+
+        Answer in error case:
+        '{"answer":"setRoomShortTimer","error":"Unexpected error"}'
 
         """
         try:
@@ -412,7 +641,9 @@ class steuerung(Resource):
                 self.clients[room]["Mode"] = mode
                 logger.info("Setting shorttimer for room %s to %ds: %s", room, time, mode)
                 self.set_status()
-                return self.get_room_shorttimer(room)
+                ret = json.loads(self.get_room_shorttimer(room))
+                ret["answer"] = "setRoomShortTimer"
+                return json.dumps(ret)
             except:
                 return '{"answer":"setRoomShortTimer","error":"Unexpected error"}'
 
@@ -616,6 +847,7 @@ class steuerung(Resource):
             self.clients[client]["Status"] = "off"
             self.clients[client]["Mode"] = "auto"
             self.clients[client]["setMode"] = "auto"
+            self.clients[client]["setWindow"] = "auto"
             self.clients[client]["normTemp"] = 21
             self.clients[client]["isTemp"] = 18
             self.clients[client]["Shorttimer"] = 0
