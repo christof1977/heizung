@@ -1,6 +1,6 @@
 [submodule "templogger/libby"]
 	path = templogger/libby
-	url = git://github.com/christof1977/libby.git
+	url = git@github.com:christof1977/libby.git
 [submodule "zentrale/libby"]
 	path = zentrale/libby
-	url = git://github.com/christof1977/libby
+	url = git@github.com:christof1977/libby.git
