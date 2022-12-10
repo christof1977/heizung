@@ -13,3 +13,4 @@ flask-marshmallow
 marshmallow
 gunicorn
 python-prctl
+Flask-Markdown
