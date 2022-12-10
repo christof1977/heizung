@@ -237,10 +237,10 @@ class steuerung(Resource):
             ret = self.reset_room_shorttimer(jcmd['Room'])
         elif(jcmd['command'] == "getRoomTemp"):
             ret = self.get_room_temp(jcmd['Room'])
-        elif(jcmd['command'] == "getRoomNormTemp"):
-            ret = self.get_room_norm_temp(jcmd['Room'])
-        elif(jcmd['command'] == "setRoomNormTemp"):
-            ret = self.set_room_norm_temp(jcmd['Room'],jcmd['normTemp'])
+        elif(jcmd['command'] == "getRoomSetTemp"):
+            ret = self.get_room_set_temp(jcmd['Room'])
+        elif(jcmd['command'] == "setRoomSetTemp"):
+            ret = self.set_room_set_temp(jcmd['Room'],jcmd['setTemp'])
         elif(jcmd['command'] == "getCounterValues"):
             ret = self.get_counter_values(jcmd['Counter'])
         elif(jcmd['command'] == "getCounter"):
@@ -355,7 +355,7 @@ class steuerung(Resource):
             "Status": "on",
             "Mode": "auto",
             "setMode": "auto",
-            "normTemp": 21.5,
+            "setTemp": 21.5,
             "isTemp": 18,
             "Shorttimer": 0,
             "ShorttimerMode": "off",
@@ -483,7 +483,7 @@ class steuerung(Resource):
             "Mode": "auto",
             "setMode": "auto",
             "setWindow": "auto",
-            "normTemp": 21,
+            "setTemp": 21,
             "isTemp": 18,
             "Shorttimer": 0,
             "ShorttimerMode": "off",
@@ -498,7 +498,7 @@ class steuerung(Resource):
             "Mode": "auto",
             "setMode": "auto",
             "setWindow": "auto",
-            "normTemp": 21,
+            "setTemp": 21,
             "isTemp": 18,
             "Shorttimer": 0,
             "ShorttimerMode": "off",
@@ -670,27 +670,27 @@ class steuerung(Resource):
         """
         return(json.dumps({"room" : room, "isTemp" : self.clients[room]["isTemp"]}))
 
-    def get_room_norm_temp(self, room):
+    def get_room_set_temp(self, room):
         """ Returns normal set temperature of room 
         Normal temperature is the value when in on-mode
 
         """
-        return(json.dumps({"room" : room, "normTemp" : self.clients[room]["normTemp"]}))
+        return(json.dumps({"room" : room, "setTemp" : self.clients[room]["setTemp"]}))
 
-    def set_room_norm_temp(self, room, temp):
+    def set_room_set_temp(self, room, temp):
         """ Sets normal set temperature of room 
         Normal temperature is the value when in on-mode
 
         """
         try:
-            self.clients[room]["normTemp"] = float(temp)
+            self.clients[room]["setTemp"] = float(temp)
         except:
-            return('{"answer":"setRoomNormTemp", "error": "temp must be of type float"}')
+            return('{"answer":"setRoomSetTemp", "error": "temp must be of type float"}')
         try:
-            logger.info("Setting normTemp for room %s to %s°C", room, temp)
-            return(json.dumps({"room" : room, "normTemp" : self.clients[room]["normTemp"]}))
+            logger.info("Setting setTemp for room %s to %s°C", room, temp)
+            return(json.dumps({"room" : room, "setTemp" : self.clients[room]["setTemp"]}))
         except:
-            return('{"answer":"setRoomNormTemp", "error": "Unexpected error"}')
+            return('{"answer":"setRoomSetTemp", "error": "Unexpected error"}')
 
     def get_counter(self):
         try:
@@ -848,7 +848,7 @@ class steuerung(Resource):
             self.clients[client]["Mode"] = "auto"
             self.clients[client]["setMode"] = "auto"
             self.clients[client]["setWindow"] = "auto"
-            self.clients[client]["normTemp"] = 21
+            self.clients[client]["setTemp"] = 21
             self.clients[client]["isTemp"] = 18
             self.clients[client]["Shorttimer"] = 0
             self.clients[client]["ShorttimerMode"] = "off"
@@ -1067,11 +1067,11 @@ class steuerung(Resource):
                 # Wenn im auto-Modus und Zusand lt. Timerfile on:
                 old = self.clients[client]["Status"]
                 if(self.clients[client]["Mode"] == "auto" and self.clients[client]["Timer"] == "on"):
-                    # isTemp < normTemp mit Hysterese -> on
-                    if float(self.clients[client]["normTemp"])  - self.hysterese/2 >= float(self.clients[client]["isTemp"]):
+                    # isTemp < setTemp mit Hysterese -> on
+                    if float(self.clients[client]["setTemp"])  - self.hysterese/2 >= float(self.clients[client]["isTemp"]):
                         self.clients[client]["Status"] = "on"
-                    # isTemp > normTemp mit Hysteres -> off
-                    elif float(self.clients[client]["normTemp"]) + self.hysterese/2 <= float(self.clients[client]["isTemp"]):
+                    # isTemp > setTemp mit Hysteres -> off
+                    elif float(self.clients[client]["setTemp"]) + self.hysterese/2 <= float(self.clients[client]["isTemp"]):
                         self.clients[client]["Status"] = "off"
                         logger.debug(client + " running in auto mode, setting state to " + self.clients[client]["Status"])
                 # Im manuellen Modus, Zustand on:
