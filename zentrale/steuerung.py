@@ -535,7 +535,7 @@ class steuerung(Resource):
         - off:          off
         - auto:         timer mode
         - window_open:  off, previous mode is stored
-        - window_close: rest to mode before window_open
+        - window_close: restore to mode before window_open
 
         Command:
         ```python
