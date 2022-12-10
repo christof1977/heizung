@@ -34,7 +34,7 @@ class mixer():
         self.mix_time_m = .1
         self.mix_time_f = .05
         self.mix_pause_c = 5 
-        self.mix_pause_f = 10
+        self.mix_pause_f = 30
         self.ff_temp_target_val = 30
         self.ff_temp_is_val = 31
         self.hyst = .5

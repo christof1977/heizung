@@ -10,8 +10,6 @@ import json
 
 
 class timer(object):
-    pass
-
     def __init__(self, jsonfile):
         #self.clients = clients
         #self.path = path
@@ -74,8 +72,6 @@ class timer(object):
         return(timer_list)
     
     def get_all_timer_list(self):
-        for client in self.tl:
-            print(json.dumps(self.tl[client]["settings"],indent=4))
         return(self.tl)
 
     def get_recent_set(self, room):
@@ -109,6 +105,5 @@ def main():
     #print(Timer.get_recent_set(room))
     Timer.get_all_timer_list()
     
-
 if __name__ == "__main__":
     main()
