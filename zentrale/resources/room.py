@@ -113,16 +113,16 @@ class RoomNormTemp(Resource):
 
     def get(self, room):
         if room in self.roomlist:
-            return json.loads(self.steuerung.get_room_norm_temp(room))
+            return json.loads(self.steuerung.get_room_set_temp(room))
         else:
-            return {"answer": "RoomNormTemp", "error": "No such room"}
+            return {"answer": "RoomSetTemp", "error": "No such room"}
 
     def put(self, room):
         temp = request.args.get("temp") #retrieve args from query string
         if room in self.roomlist:
-            return json.loads(self.steuerung.set_room_norm_temp(room, temp))
+            return json.loads(self.steuerung.set_room_set_temp(room, temp))
         else:
-            return {"answer": "RoomNormTemp", "error": "No such room"}
+            return {"answer": "RoomSetTemp", "error": "No such room"}
 
 class Timer(Resource):
     def __init__(self, **kwargs):
