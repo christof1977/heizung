@@ -94,11 +94,15 @@ temp=21.5 (float): Set desired ROOM temperature
 ### method: GET
 Returns if a mixer is present. Not yet implemented.
 
-## /mixer/ffsettemp
+## /mixer/ff/temp
 ### method: GET
-Returns the set forward flow temperature. Not yet implemented
+Returns the measured forward flow temperature. Not yet implemented
 
-## /mixer/ffmintemp
+## /mixer/ff/settemp
+### method: GET
+Returns the set forward flow temperature.
+
+## /mixer/ff/mintemp
 ### method: GET
 Returns the minimum forward flow temperature
 
@@ -111,10 +115,6 @@ Returns the maximum forward flow temperature
 
 ### method: PUT
 temp=34 (float): sets maximum forward flow temperature
-
-## /mixer/fftemp
-### method: GET
-Returns the measured forward flow temperature. Not yet implemented
 
 ## /garage
 ### method: GET

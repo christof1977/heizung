@@ -49,3 +49,11 @@ class HelpApi(Resource):
         md_template_string = markdown.markdown(readme_file.read(), extensions=["fenced_code"])
         headers = {'Content-Type': 'text/html'}
         return make_response(md_template_string,200,headers)
+
+class FfTemp(Resource):
+    def __init__(self, **kwargs):
+        self.steuerung = kwargs['steuerung']
+
+    def get(self):
+        return json.loads(self.steuerung.get_ff_set_temp())
+

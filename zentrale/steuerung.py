@@ -692,6 +692,12 @@ class steuerung(Resource):
         except:
             return('{"answer":"setRoomSetTemp", "error": "Unexpected error"}')
 
+    def get_ff_set_temp(self):
+        try:
+            return(json.dumps({"answer" : "FfSetTemp", "setTemp" : self.mix.ff_temp_target, "Unit" : "°C"}))
+        except:
+            return(json.dumps({"answer" : "FfSetTemp", "setTemp" : "Error"}))
+
     def get_counter(self):
         try:
             return(json.dumps({"Floor" : self.name, "Counter" : self.zaehler}))
