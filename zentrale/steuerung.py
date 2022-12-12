@@ -460,7 +460,9 @@ class steuerung(Resource):
         ```
 
         """
-        return(json.dumps({"name":self.hostname,"answer":"Freilich"}))
+        dt = datetime.datetime.now()
+        dts = "{:02d}:{:02d}:{:02d}".format(dt.hour, dt.minute, dt.second)
+        return(json.dumps({"name":self.hostname,"answer":"Freilich", "Time" : dts}))
 
 
     def get_status(self):
