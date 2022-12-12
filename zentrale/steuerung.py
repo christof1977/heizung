@@ -456,13 +456,13 @@ class steuerung(Resource):
 
         Answer:
         ```python
-        '{"name":"hostname","answer":"Freilich"}'
+        '{"name":"hostname","answer":"Freilich", "time":"01:01:01"}'
         ```
 
         """
         dt = datetime.datetime.now()
         dts = "{:02d}:{:02d}:{:02d}".format(dt.hour, dt.minute, dt.second)
-        return(json.dumps({"name":self.hostname,"answer":"Freilich", "Time" : dts}))
+        return(json.dumps({"name":self.hostname,"answer":"Freilich", "time" : dts}))
 
 
     def get_status(self):
