@@ -9,7 +9,7 @@ from steuerung import steuerung
 from flaskext.markdown import Markdown
 #from marshmallow import Schema, fields
 
-from resources.status import Status, Alive, HelpJsonCommands, HelpApi, FfTemp
+from resources.status import Status, Alive, HelpJsonCommands, HelpApi, FfIsTemp, FfSetTemp, Mixer
 from resources.room import Roomlist, RoomMode, RoomInfo, RoomStatus, RoomTimer, RoomShortTimer, RoomTemp, RoomNormTemp, Timer
 
 #class StatusSchema(Schema):
@@ -37,7 +37,9 @@ api.add_resource(RoomShortTimer, '/room/<string:room>/shorttimer', resource_clas
 api.add_resource(RoomTemp, '/room/<string:room>/temp', resource_class_kwargs={'steuerung': steuerung})
 api.add_resource(RoomNormTemp, '/room/<string:room>/settemp', resource_class_kwargs={'steuerung': steuerung})
 api.add_resource(Timer, '/timer', resource_class_kwargs={'steuerung': steuerung})
-api.add_resource(FfTemp, '/mixer/ff/temp', resource_class_kwargs={'steuerung': steuerung})
+api.add_resource(Mixer, '/mixer', resource_class_kwargs={'steuerung': steuerung})
+api.add_resource(FfIsTemp, '/mixer/ff/temp', resource_class_kwargs={'steuerung': steuerung})
+api.add_resource(FfSetTemp, '/mixer/ff/settemp', resource_class_kwargs={'steuerung': steuerung})
 
 if __name__ == "__main__":
     threading.Thread(target=lambda: app.run(host=host_name, port=port, debug=True, use_reloader=False)).start()

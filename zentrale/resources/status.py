@@ -50,10 +50,32 @@ class HelpApi(Resource):
         headers = {'Content-Type': 'text/html'}
         return make_response(md_template_string,200,headers)
 
-class FfTemp(Resource):
+class Mixer(Resource):
+    def __init__(self, **kwargs):
+        self.steuerung = kwargs['steuerung']
+
+    def get(self):
+        avail = json.loads(self.steuerung.get_mixer())
+        running = json.loads(self.steuerung.mixer_running())
+        ff_is_temp = json.loads(self.steuerung.get_ff_is_temp())
+        ff_set_temp = json.loads(self.steuerung.get_ff_set_temp())
+        if(avail["answer"]=="available"):
+            ret = {"mixer":{"available":avail["answer"], "running":running["answer"], "ff_set_temp": ff_set_temp["answer"], "ff_is_temp": ff_is_temp["answer"]}}
+        else:
+            ret = {"mixer":{"available":avail["answer"]}}
+        return(ret)
+
+class FfSetTemp(Resource):
     def __init__(self, **kwargs):
         self.steuerung = kwargs['steuerung']
 
     def get(self):
         return json.loads(self.steuerung.get_ff_set_temp())
+
+class FfIsTemp(Resource):
+    def __init__(self, **kwargs):
+        self.steuerung = kwargs['steuerung']
+
+    def get(self):
+        return json.loads(self.steuerung.get_ff_is_temp())
 

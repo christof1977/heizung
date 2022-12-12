@@ -694,11 +694,63 @@ class steuerung(Resource):
         except:
             return('{"answer":"setRoomSetTemp", "error": "Unexpected error"}')
 
-    def get_ff_set_temp(self):
+    def get_mixer(self):
+        """ Returns is a mixer is available.
+
+        Answer:
+        "{"request":"get_mixer", "answer":"not available"}"
+        "{"request":"get_mixer", "answer":"available"}"
+        """
+        if(self.mixer_addr == -1):
+            return(json.dumps({"request":"get_mixer", "answer":"not available"}))
+        else:
+            return(json.dumps({"request":"get_mixer", "answer":"available"}))
+
+    def mixer_running(self):
+        """ Returns if mixer is running.
+
+        Answer:
+        "{"request":"mixer_running", "answer":true}"
+        "{"request":"mixer_running", "answer":false}"
+
+        In case no mixer is available:
+        "{"request":"mixer_running", "answer":"Error"}"
+
+        """
         try:
-            return(json.dumps({"answer" : "FfSetTemp", "setTemp" : self.mix.ff_temp_target, "Unit" : "°C"}))
+            return(json.dumps({"request":"mixer_running", "answer":self.mix.running}))
         except:
-            return(json.dumps({"answer" : "FfSetTemp", "setTemp" : "Error"}))
+            return(json.dumps({"request":"mixer_running", "answer":"Error"}))
+
+    def get_ff_is_temp(self):
+        """ Returns measured mixer forward flow temperature
+
+        Answer:
+        {"request" : "FfIsTemp", "answer" : 77.0, "Unit" : "°C"})
+
+        In case no mixer is available:
+        "{"request":"FFIsTemp", "answer":"Error"}"
+
+        """
+        try:
+            return(json.dumps({"request" : "FfIsTemp", "answer" : self.mix.ff_temp_is, "Unit" : "°C"}))
+        except:
+            return(json.dumps({"request" : "FfIsTemp", "answer" : "Error"}))
+
+    def get_ff_set_temp(self):
+        """ Returns set mixer forward flow temperature
+
+        Answer:
+        {"request" : "FfSetTemp", "answer" : 77.0, "Unit" : "°C"})
+ 
+        In case no mixer is available:
+        "{"request":"FFSetTemp", "answer":"Error"}"
+
+        """
+        try:
+            return(json.dumps({"request" : "FfSetTemp", "answer" : self.mix.ff_temp_target, "Unit" : "°C"}))
+        except:
+            return(json.dumps({"request" : "FfSetTemp", "answer" : "Error"}))
 
     def get_counter(self):
         try:

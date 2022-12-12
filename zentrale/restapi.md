@@ -92,11 +92,11 @@ temp=21.5 (float): Set desired ROOM temperature
 
 ## /mixer
 ### method: GET
-Returns if a mixer is present. Not yet implemented.
+Returns if a mixer is present. If mixer is present, run state and temp data is returned as well
 
 ## /mixer/ff/temp
 ### method: GET
-Returns the measured forward flow temperature. Not yet implemented
+Returns the measured forward flow temperature
 
 ## /mixer/ff/settemp
 ### method: GET
