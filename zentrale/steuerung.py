@@ -873,7 +873,10 @@ class steuerung(Resource):
             self.off = 0
         self.logpath = os.path.join(basepath, 'log')
         self.timerpath = setpath
-        self.timerfile = os.path.join(setpath, self.config['BASE']['Timerfile'])
+        self.timerfile = self.config['BASE']['Timerfile']
+        if(self.timerfile == ""):
+            self.timerfile = "timer_" + self.hostname + ".json"
+        self.timerfile = os.path.join(setpath, self.timerfile)
         logger.info(self.timerfile)
         try:
             self.garagenkontakt = int(self.config['GARAGE']['Kontakt'])
