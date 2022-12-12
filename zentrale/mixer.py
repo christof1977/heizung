@@ -61,6 +61,8 @@ class mixer():
         if(ff_temp > self.max_ff_temp):
             ff_temp = self.max_ff_temp
         self.ff_temp_target_val = ff_temp
+        if not self.running:
+            self.ff_temp_target_val = 8.0
         logger.debug("ff_temp_target_val = " + str(self.ff_temp_target_val) + "°C")
 
     @property
