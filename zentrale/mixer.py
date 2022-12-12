@@ -48,7 +48,6 @@ class mixer():
     def ff_temp_target(self) -> float:
         return self.ff_temp_target_val
 
-
     @ff_temp_target.setter
     def ff_temp_target(self, is_temp:float):
         '''This function returns the value of the forward flow temperature
