@@ -1036,14 +1036,16 @@ class steuerung(Resource):
         for sensor in self.sensorik:
             if(self.sensorik[sensor]["ID"] in self.w1_slaves):
                 val = round(self.w1.getValue(self.sensorik[sensor]["ID"]),1)
+                pub = True # publish as MQTT telegram
                 if(sensor in self.clients):
                     self.clients[sensor]["isTemp"] = val
-                    pub = True # publish as MQTT telegram
             if(self.sensorik[sensor]["ID"] == "ff_temp_target"):
                 val = self.mix.ff_temp_target
                 pub = True # publish as MQTT telegram
-            if(pub):
+            if pub:
+                logger.info("Publish")
                 publish.single(self.name + "/" + sensor + "/" + self.sensorik[sensor]["Type"], val, hostname=self.mqtthost, client_id=self.hostname,auth = {"username":self.mqttuser, "password":self.mqttpass})
+            pub = False
 
     def broadcast_value(self):
         '''
