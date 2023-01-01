@@ -88,12 +88,15 @@ class steuerung(Resource):
         self.udpRx()
 
         self.mqtttopics = {}
-
         if(self.garagenkontakt != -1):
                 self.mqtttopics["Garage"] = "Garage/Tor/Kommando"
         for sensor in self.sensorik:
-            if(self.sensorik[sensor]["System"] == "MQTT"):
-                self.mqtttopics[sensor] = self.sensorik[sensor]["ID"]
+            logger.info("Sensor " + sensor + ": " + str(self.sensorik[sensor]))
+            try:
+                if(self.sensorik[sensor]["System"] == "MQTT"):
+                    self.mqtttopics[sensor] = self.sensorik[sensor]["ID"]
+            except:
+                logger.warning("Config error, key 'System' missing.")
 
         if self.mqtttopics:
             self.mqttclient = mqtt.Client(self.hostname)
@@ -108,17 +111,14 @@ class steuerung(Resource):
         if(self.garagenkontakt != -1):
                 self.garagenmeldung(self.garagenmelder)
 
-        logger.info(self.sensorik)
-
         self.run()
 
     # The callback for when the client connects to the broker.
     def on_mqtt_connect(self, client, userdata, flags, rc):
-        logging.info("Connected To Broker")
+        #logger.info("Connected To Broker")
         # After establishing a connection, subscribe to the input topic.
         for topic in self.mqtttopics:
-            logger.info("Subscribing to " + self.mqtttopics[topic])
-
+            #logger.info("Subscribing to " + self.mqtttopics[topic])
             client.subscribe(self.mqtttopics[topic])
 
     # The callback for when a message is received from the broker.
@@ -226,7 +226,7 @@ class steuerung(Resource):
         data = data.decode()
         try:
             jcmd = json.loads(data)
-            logging.debug(data)
+            logger.debug(data)
         except:
             logger.warning("Das ist mal kein JSON, pff!")
             ret = json.dumps({"answer": "Kaa JSON Dings!"})
@@ -327,11 +327,11 @@ class steuerung(Resource):
         """
         if self.garagenkontakt > 0:
             if(val ==  self._get_tor()):
-                logging.info("Gargentor ist doch schon "+ val + ". Fuesse stillhalten")
+                logger.info("Gargentor ist doch schon "+ val + ". Fuesse stillhalten")
                 ret = json.dumps({"Answer":"setTor","Request":val,"Result":"Tor ist doch schon " + val + ", Doldi."})
             else:
                 try:
-                    logging.info("Moving Garagentor")
+                    logger.info("Moving Garagentor")
                     GPIO.output(self.garagenkontakt, 1)
                     time.sleep(.2)
                     GPIO.output(self.garagenkontakt, 0)
@@ -900,7 +900,6 @@ class steuerung(Resource):
         self.name = self.config['BASE']['Name']
         self.sensorik = {}
         sensorik = dict(self.config.items('SENSORS'))
-        logging.info(sensorik)
         for sensor in sensorik:
             tmp = sensorik[sensor].split(", ")
             self.sensorik[sensor] = {}
@@ -972,6 +971,7 @@ class steuerung(Resource):
             self.mixer_sens = self.config['BASE']['MischerSens']
             self.sensorik["VorlaufSoll"] = {}
             self.sensorik["VorlaufSoll"]["Type"] = "Temperatur"
+            self.sensorik["VorlaufSoll"]["System"] = "Intern"
             self.sensorik["VorlaufSoll"]["ID"] = "ff_temp_target"
         except:
             self.mixer_addr = -1
@@ -1028,7 +1028,7 @@ class steuerung(Resource):
                 publish.single("Garage/Tor", self.garagentor, hostname=self.mqtthost, client_id=self.hostname,auth = {"username":self.mqttuser, "password":self.mqttpass})
                 logger.debug(self.garagentor)
         except Exception as e:
-            logging.error(e)
+            logger.error(e)
 
     def get_sensor_values(self):
         logger.debug(self.sensorik)
@@ -1043,7 +1043,6 @@ class steuerung(Resource):
                 val = self.mix.ff_temp_target
                 pub = True # publish as MQTT telegram
             if pub:
-                logger.info("Publish")
                 publish.single(self.name + "/" + sensor + "/" + self.sensorik[sensor]["Type"], val, hostname=self.mqtthost, client_id=self.hostname,auth = {"username":self.mqttuser, "password":self.mqttpass})
             pub = False
 
