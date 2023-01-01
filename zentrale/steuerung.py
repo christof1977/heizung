@@ -87,23 +87,39 @@ class steuerung(Resource):
         self.broadcast_value()
         self.udpRx()
 
+        self.mqtttopics = {}
+
         if(self.garagenkontakt != -1):
-            self.mqttclientgarage = mqtt.Client("Garage")
-            self.mqttclientgarage.on_connect = self.on_mqtt_connect
-            self.mqttclientgarage.on_message = self.on_mqtt_message
+                self.mqtttopics["Garage"] = "Garage/Tor/Kommando"
+        for sensor in self.sensorik:
+            if(self.sensorik[sensor]["System"] == "MQTT"):
+                self.mqtttopics[sensor] = self.sensorik[sensor]["ID"]
+
+        if self.mqtttopics:
+            self.mqttclient = mqtt.Client(self.hostname)
+            self.mqttclient.on_connect = self.on_mqtt_connect
+            self.mqttclient.on_message = self.on_mqtt_message
             # Then, connect to the broker.
-            self.mqttclientgarage.username_pw_set(self.mqttuser, self.mqttpass)
-            self.mqttclientgarage.connect(self.mqtthost, 1883, 60)
+            self.mqttclient.username_pw_set(self.mqttuser, self.mqttpass)
+            self.mqttclient.connect(self.mqtthost, 1883, 60)
             # Finally, process messages until a `client.disconnect()` is called.
-            self.mqttclientgarage.loop_start()
-        self.garagenmeldung(self.garagenmelder)
+            self.mqttclient.loop_start()
+
+        if(self.garagenkontakt != -1):
+                self.garagenmeldung(self.garagenmelder)
+
+        logger.info(self.sensorik)
+
         self.run()
 
     # The callback for when the client connects to the broker.
     def on_mqtt_connect(self, client, userdata, flags, rc):
-        print("Connected To Broker")
+        logging.info("Connected To Broker")
         # After establishing a connection, subscribe to the input topic.
-        client.subscribe("Garage/Tor/Kommando")
+        for topic in self.mqtttopics:
+            logger.info("Subscribing to " + self.mqtttopics[topic])
+
+            client.subscribe(self.mqtttopics[topic])
 
     # The callback for when a message is received from the broker.
     def on_mqtt_message(self, client, userdata, msg):
@@ -114,7 +130,17 @@ class steuerung(Resource):
                 self.set_tor("auf")
             else:
                 self.set_tor("zu")
-        # Check if payload is the quit signal.
+        for sensor in self.sensorik:
+            if msg.topic in self.sensorik.get(sensor).values():
+                try:
+                    payload = json.loads(payload)
+                except:
+                    logger.warning("Not a JSON string")
+                for key in payload.keys():
+                    try:
+                        self.clients[sensor]["isTemp"] = payload[key]["Temperature"]
+                    except:
+                        pass
 
     def udpRx(self):
          self.udpRxTstop = threading.Event()
@@ -863,6 +889,7 @@ class steuerung(Resource):
         inifile = os.path.join(setpath, self.hostname + '.ini')
 
         self.config = configparser.ConfigParser()
+        self.config.optionxform = str
         logger.info("Loading " + inifile)
         self.config.read(inifile)
 
@@ -873,12 +900,13 @@ class steuerung(Resource):
         self.name = self.config['BASE']['Name']
         self.sensorik = {}
         sensorik = dict(self.config.items('SENSORS'))
+        logging.info(sensorik)
         for sensor in sensorik:
             tmp = sensorik[sensor].split(", ")
-            sensor = sensor.capitalize()
             self.sensorik[sensor] = {}
             self.sensorik[sensor]["Type"] = tmp[0]
-            self.sensorik[sensor]["ID"] = tmp[1]
+            self.sensorik[sensor]["System"] = tmp[1]
+            self.sensorik[sensor]["ID"] = tmp[2]
         self.pumpe = int(self.config['BASE']['Pumpe'])
         self.oekofen = int(self.config['BASE']['Oekofen'])
         try:
@@ -992,11 +1020,11 @@ class steuerung(Resource):
         try:
             if(status == 1):
                 self.garagentor = "zu"
-                self.mqttclientgarage.publish("Garage/Tor/Zustand", self.garagentor)
+                self.mqttclient.publish("Garage/Tor/Zustand", self.garagentor)
                 logger.debug(self.garagentor)
             elif(status == 0):
                 self.garagentor = "auf"
-                self.mqttclientgarage.publish("Garage/Tor/Zustand", self.garagentor)
+                self.mqttclient.publish("Garage/Tor/Zustand", self.garagentor)
                 publish.single("Garage/Tor", self.garagentor, hostname=self.mqtthost, client_id=self.hostname,auth = {"username":self.mqttuser, "password":self.mqttpass})
                 logger.debug(self.garagentor)
         except Exception as e:
@@ -1004,14 +1032,18 @@ class steuerung(Resource):
 
     def get_sensor_values(self):
         logger.debug(self.sensorik)
+        pub = False # do not publish as MQTT telegram
         for sensor in self.sensorik:
             if(self.sensorik[sensor]["ID"] in self.w1_slaves):
                 val = round(self.w1.getValue(self.sensorik[sensor]["ID"]),1)
                 if(sensor in self.clients):
                     self.clients[sensor]["isTemp"] = val
+                    pub = True # publish as MQTT telegram
             if(self.sensorik[sensor]["ID"] == "ff_temp_target"):
                 val = self.mix.ff_temp_target
-            publish.single(self.name + "/" + sensor + "/" + self.sensorik[sensor]["Type"], val, hostname=self.mqtthost, client_id=self.hostname,auth = {"username":self.mqttuser, "password":self.mqttpass})
+                pub = True # publish as MQTT telegram
+            if(pub):
+                publish.single(self.name + "/" + sensor + "/" + self.sensorik[sensor]["Type"], val, hostname=self.mqtthost, client_id=self.hostname,auth = {"username":self.mqttuser, "password":self.mqttpass})
 
     def broadcast_value(self):
         '''
