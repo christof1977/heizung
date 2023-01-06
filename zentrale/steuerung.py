@@ -29,9 +29,12 @@ from flask_restful import Api
 from flask_restful import Resource, abort
 
 # TODO
-# - Integration Ist-Temperatur
-# - Absenktemperatur
-# - Sauberes Beenden
+# - MQTT Retain
+# - MQTT LWT
+# - REST-Interface Garage
+# - Publish ventil status
+# - Publish pump status
+# - Publish change of other values
 
 udp_port = 5005
 server = "dose"
@@ -112,7 +115,6 @@ class steuerung(Resource):
 
     # The callback for when the client connects to the broker.
     def on_mqtt_connect(self, client, userdata, flags, rc):
-        #logger.info("Connected To Broker")
         # After establishing a connection, subscribe to the input topic.
         for topic in self.mqtttopics:
             #logger.info("Subscribing to " + self.mqtttopics[topic])
@@ -903,6 +905,7 @@ class steuerung(Resource):
             self.sensorik[sensor]["Type"] = tmp[0]
             self.sensorik[sensor]["System"] = tmp[1]
             self.sensorik[sensor]["ID"] = tmp[2]
+            self.sensorik[sensor]["PreviousVal"] = 0
         self.pumpe = int(self.config['BASE']['Pumpe'])
         self.oekofen = int(self.config['BASE']['Oekofen'])
         try:
@@ -924,7 +927,7 @@ class steuerung(Resource):
                     tmp1.append(int(tmp[j]))
                 relais.append(tmp1)
         i = 0
-        self.clients = {}
+        self.clients = {} # Dict with all room information
         for client in clients:
             self.clients[client] = {}
             self.clients[client]["Relais"] = relais[i]
@@ -970,6 +973,7 @@ class steuerung(Resource):
             self.sensorik["VorlaufSoll"]["Type"] = "Temperatur"
             self.sensorik["VorlaufSoll"]["System"] = "Intern"
             self.sensorik["VorlaufSoll"]["ID"] = "ff_temp_target"
+            self.sensorik["VorlaufSoll"]["PreviousVal"] = 0
         except:
             self.mixer_addr = -1
             self.mixer_sens = -1
@@ -1029,18 +1033,18 @@ class steuerung(Resource):
 
     def get_sensor_values(self):
         logger.debug(self.sensorik)
-        pub = False # do not publish as MQTT telegram
-        for sensor in self.sensorik:
-            if(self.sensorik[sensor]["ID"] in self.w1_slaves):
+        for sensor in self.sensorik: #Iterate all sensors configured in ini-file
+            pub = False # do not publish as MQTT telegram
+            if(self.sensorik[sensor]["ID"] in self.w1_slaves): # Do this, if iterated sensor is a 1w-sensor
                 val = round(self.w1.getValue(self.sensorik[sensor]["ID"]),1)
-                #logger.info(sensor+str(val))
                 pub = True # publish as MQTT telegram
-                if(sensor in self.clients):
+                if(sensor in self.clients): 
                     self.clients[sensor]["isTemp"] = val
             if(self.sensorik[sensor]["ID"] == "ff_temp_target"):
                 val = self.mix.ff_temp_target
                 pub = True # publish as MQTT telegram
-            if pub:
+            if pub and self.sensorik[sensor]["PreviousVal"] != val:
+                self.sensorik[sensor]["PreviousVal"] = val
                 now = datetime.datetime.now().replace(microsecond=0).isoformat()
                 topic = self.name + "/" + sensor + "/" + self.hostname 
                 msg = {"Time":now,
@@ -1054,7 +1058,6 @@ class steuerung(Resource):
                                hostname=self.mqtthost,
                                client_id=self.hostname,
                                auth = {"username":self.mqttuser, "password":self.mqttpass})
-            pub = False
 
     def broadcast_value(self):
         '''
