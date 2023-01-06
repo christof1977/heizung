@@ -97,7 +97,6 @@ class steuerung(Resource):
                     self.mqtttopics[sensor] = self.sensorik[sensor]["ID"]
             except:
                 logger.warning("Config error, key 'System' missing.")
-
         if self.mqtttopics:
             self.mqttclient = mqtt.Client(self.hostname+str(datetime.datetime.now().timestamp()))
             self.mqttclient.on_connect = self.on_mqtt_connect
@@ -107,10 +106,8 @@ class steuerung(Resource):
             self.mqttclient.connect(self.mqtthost, 1883, 60)
             # Finally, process messages until a `client.disconnect()` is called.
             self.mqttclient.loop_start()
-
         if(self.garagenkontakt != -1):
                 self.garagenmeldung(self.garagenmelder)
-
         self.run()
 
     # The callback for when the client connects to the broker.
@@ -134,13 +131,13 @@ class steuerung(Resource):
             if msg.topic in self.sensorik.get(sensor).values():
                 try:
                     payload = json.loads(payload)
+                    for key in payload.keys():
+                        try:
+                            self.clients[sensor]["isTemp"] = payload[key]["Temperature"]
+                        except:
+                            pass
                 except:
                     logger.warning("Not a JSON string")
-                for key in payload.keys():
-                    try:
-                        self.clients[sensor]["isTemp"] = payload[key]["Temperature"]
-                    except:
-                        pass
 
     def udpRx(self):
          self.udpRxTstop = threading.Event()
@@ -1044,8 +1041,19 @@ class steuerung(Resource):
                 val = self.mix.ff_temp_target
                 pub = True # publish as MQTT telegram
             if pub:
-                #logger.info(pub)
-                publish.single(self.name + "/" + sensor + "/" + self.sensorik[sensor]["Type"], val, hostname=self.mqtthost, client_id=self.hostname,auth = {"username":self.mqttuser, "password":self.mqttpass})
+                now = datetime.datetime.now().replace(microsecond=0).isoformat()
+                topic = self.name + "/" + sensor + "/" + self.hostname 
+                msg = {"Time":now,
+                       self.sensorik[sensor]["System"]:
+                            {"Id":self.sensorik[sensor]["ID"],
+                             "Temperature":val},
+                             "TempUnit":"C"}
+                msg = json.dumps(msg)
+                publish.single(topic+"/SENSOR",
+                               msg,
+                               hostname=self.mqtthost,
+                               client_id=self.hostname,
+                               auth = {"username":self.mqttuser, "password":self.mqttpass})
             pub = False
 
     def broadcast_value(self):
