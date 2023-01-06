@@ -30,46 +30,26 @@ from flask_restful import Resource, abort
 # - MQTT Retain
 # - MQTT LWT
 # - REST-Interface Garage
-# - Publish ventil status
 # - Publish pump status
 # - Publish change of other values
+# - Change Umwälzpumpe to MQTT
+# - Change Aussentemperatur to MQTT 
 
 udp_port = 5005
 server = "dose"
 datacenterport = 6663
-udpBcPort =  6664
 logger = logging.getLogger('Heizung')
 #logger.setLevel(logging.DEBUG)
 logger.setLevel(logging.INFO)
 
-
-class udpBroadcast():
-    def __init__(self):
-        self.udpSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        self.udpSock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT,1)
-        self.udpSock.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST, 1)
-        self.udpSock.settimeout(0.1)
-        logger.info("UDP Broadcast socket created")
-
-    def send(self, message):
-        try:
-            logger.debug(json.dumps(message))
-            self.udpSock.sendto(json.dumps(message).encode(),("<broadcast>",udpBcPort))
-        except:
-            logger.error("Something went wrong while sending UDP broadcast message")
-
-#class steuerung(threading.Thread):
 class steuerung(Resource):
     def __init__(self):
-        #threading.Thread.__init__(self)
-        #logger.info("Starting Steuerungthread as " + threading.currentThread().getName())
         self.t_stop = threading.Event()
         self.read_config()
         self.system = {"ModeReset":"2:00"}
         
         self.set_hw()
         if(self.mixer_addr != -1):
-            #self.mix = mixer(addr=self.mixer_addr)
             self.mix = mixer()
             self.mix.run()
         
@@ -83,9 +63,6 @@ class steuerung(Resource):
         self.timer_operation()
 
         self.udpServer()
-        self.udp = udpBroadcast()
-
-        self.broadcast_value()
         self.udpRx()
 
         self.mqtttopics = {}
@@ -185,7 +162,6 @@ class steuerung(Resource):
         while(not self.t_stop.is_set()):
             try:
                 data, addr = self.udpSock.recvfrom( 1024 )# Puffer-Groesse ist 1024 Bytes.
-                #logger.debug("Kimm ja scho")
                 ret = self.parseCmd(data) # Abfrage der Fernbedienung (UDP-Server), der Rest passiert per Interrupt/Event
                 self.udpSock.sendto(str(ret).encode('utf-8'), addr)
             except Exception as e:
@@ -1057,36 +1033,6 @@ class steuerung(Resource):
                                client_id=self.hostname,
                                auth = {"username":self.mqttuser, "password":self.mqttpass})
 
-    def broadcast_value(self):
-        '''
-        Starts the UDP sensor broadcasting daemon thread
-        '''
-        self.bcastTstop = threading.Event()
-        bcastT = threading.Thread(target=self._broadcast_value)
-        bcastT.setDaemon(True)
-        bcastT.start()
-
-    def _broadcast_value(self):
-        '''
-        This function is running as a thread and performs an UDP
-        broadcast of sensor values every 20 seconds on port udpBcPort.
-        This datagram could be fetched by multiple clients for purposes
-        of display or storage.
-        '''
-        prctl.set_name("UDP Broadcast Value")
-        logger.info("Starting UDP Sensor Broadcasting Thread" + threading.currentThread().getName())
-        while(not self.bcastTstop.is_set()):
-            try:
-                self.get_sensor_values()
-            except Exception as e:
-                logger.error("Error in broadcast_value: sensor_values")
-                logger.error(str(e))
-            try:
-                self.garagenmeldung(self.garagenmelder)
-            except Exception as e:
-                logger.error("Error in broadcast_value: Garagenmeldung")
-                logger.error(str(e))
-            self.bcastTstop.wait(20)
 
     def set_pumpe(self):
         '''
@@ -1251,26 +1197,22 @@ class steuerung(Resource):
 
     def _run(self):
         prctl.set_name("Running runner")
+        cnt = 20
         while True:
             try:
                 if self.mixer_sens in self.sensorik:
                     logger.debug(self.w1.getValue(self.sensorik[self.mixer_sens]["ID"]))
                     self.mix.ff_temp_is = self.w1.getValue(self.sensorik[self.mixer_sens]["ID"])
                     logger.debug(self.mix.ff_temp_is)
-                time.sleep(5)
+                if cnt >= 20:
+                    cnt = 0
+                    self.get_sensor_values()
+                    self.garagenmeldung(self.garagenmelder)
+                cnt+=1
+                time.sleep(1)
             except KeyboardInterrupt: # CTRL+C exit
                 self.stop()
                 break
+    
 
-#host_name = "0.0.0.0"
-#port = 5000 
-#app = Flask(__name__)
-#api = Api(app)
-
-#api.add_resource(Status, '/status', '/status/<string:id>')
-
-#if __name__ == "__main__":
-#    steuerung = steuerung()
-#    threading.Thread(target=lambda: app.run(host=host_name, port=port, debug=True, use_reloader=False)).start()
-#    steuerung.run()
 
