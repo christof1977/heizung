@@ -34,6 +34,7 @@ from flask_restful import Resource, abort
 # - Publish change of other values
 # - Change Umwälzpumpe to MQTT
 # - Change Aussentemperatur to MQTT 
+# - Publish counter values to MQTT
 
 udp_port = 5005
 server = "dose"
