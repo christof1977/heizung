@@ -15,8 +15,6 @@ from libby import remote
 from libby import mbus
 import threading
 from threading import Thread
-import urllib
-import urllib.request
 import logging
 import select
 import paho.mqtt.client as mqtt
@@ -1026,7 +1024,7 @@ class steuerung(Resource):
             elif(status == 0):
                 self.garagentor = "auf"
                 self.mqttclient.publish("Garage/Tor/Zustand", self.garagentor)
-                publish.single("Garage/Tor", self.garagentor, hostname=self.mqtthost, client_id=self.hostname,auth = {"username":self.mqttuser, "password":self.mqttpass})
+                publish.single("Garage/Tor", self.garagentor, hostname=self.mqtthost, client_id=self.hostname, auth = {"username":self.mqttuser, "password":self.mqttpass})
                 logger.debug(self.garagentor)
         except Exception as e:
             logger.error(e)
@@ -1194,8 +1192,23 @@ class steuerung(Resource):
                 else:
                     self.clients[client]["Status"] = "off"
                     logger.debug(client + " running in auto mode, setting state to " + self.clients[client]["Status"])
+                # Log-Ausgabe und MQTT-Message, wenn sich der Schaltzustand geändert hat
                 if(old != self.clients[client]["Status"]):
                     logger.info("State has changed: turning %s %s", client, self.clients[client]["Status"])
+                    now = datetime.datetime.now().replace(microsecond=0).isoformat()
+                    topic = self.name + "/" + client + "/" + self.hostname
+                    if self.clients[client]["Status"] == "on":
+                        state = 1
+                    else:
+                        state = 0
+                    msg = {"Time":now,
+                           "State":state}
+                    msg = json.dumps(msg)
+                    publish.single(topic+"/VALVE",
+                                   msg,
+                                   hostname=self.mqtthost,
+                                   client_id=self.hostname,
+                                   auth = {"username":self.mqttuser, "password":self.mqttpass})
         # Wenn die Umwälzpumpe nicht läuft, alles ausschalten:
         else:
             logger.debug("Umwaelzpumpe aus")
