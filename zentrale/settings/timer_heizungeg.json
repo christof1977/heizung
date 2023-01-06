@@ -39,41 +39,5 @@
 	  "Di,Mi":{"7:00":"on", "22:30":"off"},
 	  "Sa-So":{"8:00":"on", "22:00":"off"}
             }
- },
- "BadDG":{
- "room":"BadDG",
- "settings":{
-	 "Mo-Fr":{
-		 "4:30":"off",
-		 "18:00":"off"},
-	  "Sa-So":{
-		  "6:30":"off",
-		  "18:00":"off"
-	          }
-            }
- },
- "Felix":{
- "room":"Felix",
- "settings":{
-	 "Mo-Fr":{
-		 "5:00":"off",
-		 "15:00":"off"},
-	  "Sa-So":{
-		  "6:00":"off",
-		  "15:00":"off"
-	          }
-            }
- },
- "Leah":{
- "room":"Leah",
- "settings":{
-	 "Mo-Fr":{
-		 "5:00":"off",
-		 "15:00":"off"},
-	  "Sa-So":{
-		  "6:00":"off",
-		  "15:00":"off"
-	          }
-            }
  }
 }
