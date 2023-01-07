@@ -18,7 +18,7 @@ from threading import Thread
 import logging
 import select
 import paho.mqtt.client as mqtt
-import paho.mqtt.publish as publish
+#import paho.mqtt.publish as publish
 import prctl
 
 from flask import Flask
@@ -56,6 +56,7 @@ class steuerung(Resource):
         self.udpServer()
         self.udpRx()
 
+        # MQTT Topics to subscribe to (receiving vales)
         self.mqtttopics = {}
         if(self.garagenkontakt != -1):
                 self.mqtttopics["Garage"] = "Garage/Tor/Kommando"
@@ -908,8 +909,13 @@ class steuerung(Resource):
             self.sensorik[sensor]["Time"] = ""
             self.sensorik[sensor]["Value"] = -150
             self.sensorik[sensor]["PreviousValue"] = -150
+            if self.sensorik[sensor]["ID"] == "MQTT":
+                self.sensorik[sensor]["Publish"] = False
+            else:
+                self.sensorik[sensor]["Publish"] = True
         self.pumpe = int(self.config['BASE']['Pumpe'])
         self.oekofen = int(self.config['BASE']['Oekofen'])
+        # See, if we have energy meters configured (M-Bus)
         try:
             self.zaehler = self.config['BASE']['Zaehler'].split(";")
             self.zaehleraddr = (self.config['BASE']['ZaehlerAddr'].split(";"))
@@ -975,6 +981,7 @@ class steuerung(Resource):
             self.sensorik["VorlaufSoll"]["Type"] = "Temperatur"
             self.sensorik["VorlaufSoll"]["System"] = "Intern"
             self.sensorik["VorlaufSoll"]["ID"] = "ff_temp_target"
+            self.sensorik["VorlaufSoll"]["Publish"] = True
             self.sensorik["VorlaufSoll"]["Value"] = -150
             self.sensorik["VorlaufSoll"]["PreviousValue"] = -150
         except:
@@ -1024,11 +1031,11 @@ class steuerung(Resource):
         try:
             if(status == 1):
                 self.garagentor = "zu"
-                self.mqttclient.publish("Garage/Tor/Zustand", self.garagentor)
+                self.mqttclient.publish("Garage/Tor/Zustand", self.garagentor, retain=True)
                 logger.debug(self.garagentor)
             elif(status == 0):
                 self.garagentor = "auf"
-                self.mqttclient.publish("Garage/Tor/Zustand", self.garagentor)
+                self.mqttclient.publish("Garage/Tor/Zustand", self.garagentor, retain=True)
                 logger.debug(self.garagentor)
         except Exception as e:
             logger.error(e)
@@ -1036,21 +1043,18 @@ class steuerung(Resource):
     def read_sensor_values(self):
         for sensor in self.sensorik: #Iterate all sensors configured in ini-file
             now = datetime.datetime.now().replace(microsecond=0).isoformat()
-            pub = False # do not publish as MQTT telegram
             val = -150 # initial value to make sure, variable is present
             if(self.sensorik[sensor]["ID"] in self.w1_slaves): # Do this, if iterated sensor is a 1w-sensor
                 val = round(self.w1.getValue(self.sensorik[sensor]["ID"]),1)
                 self.sensorik[sensor]["Value"] = val
                 self.sensorik[sensor]["Time"] = now
-                pub = True # publish as MQTT telegram
                 if(sensor in self.clients): 
                     self.clients[sensor]["isTemp"] = val
             if(self.sensorik[sensor]["ID"] == "ff_temp_target"):
                 val = self.mix.ff_temp_target
                 self.sensorik[sensor]["Value"] = val
                 self.sensorik[sensor]["Time"] = now
-                pub = True # publish as MQTT telegram
-            if pub and self.sensorik[sensor]["PreviousValue"] != val:
+            if self.sensorik[sensor]["Publish"] and self.sensorik[sensor]["PreviousValue"] != val:
                 self.sensorik[sensor]["PreviousValue"] = val
                 topic = self.name + "/" + sensor + "/" + self.hostname 
                 msg = {"Time":now,
@@ -1059,8 +1063,7 @@ class steuerung(Resource):
                              "Temperature":val},
                              "TempUnit":"C"}
                 msg = json.dumps(msg)
-                self.mqttclient.publish(topic+"/SENSOR",
-                               msg)
+                self.mqttclient.publish(topic+"/SENSOR", msg, retain=True)
                                #hostname=self.mqtthost,
                                #client_id=self.hostname,
                                #auth = {"username":self.mqttuser, "password":self.mqttpass})
@@ -1180,8 +1183,7 @@ class steuerung(Resource):
                     msg = {"Time":now,
                            "State":state}
                     msg = json.dumps(msg)
-                    self.mqttclient.publish(topic+"/VALVE",
-                                   msg)
+                    self.mqttclient.publish(topic+"/VALVE", msg, retain=True)
                                    #hostname=self.mqtthost,
                                    #client_id=self.hostname,
                                    #auth = {"username":self.mqttuser, "password":self.mqttpass})
