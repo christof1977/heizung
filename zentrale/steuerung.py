@@ -26,16 +26,6 @@ from flask import request
 from flask_restful import Api
 from flask_restful import Resource, abort
 
-# TODO
-# - MQTT Retain
-# - MQTT LWT
-# - REST-Interface Garage
-# - Publish pump status
-# - Publish change of other values
-# - Change Umwälzpumpe to MQTT
-# - Change Aussentemperatur to MQTT 
-# - Publish counter values to MQTT
-
 udp_port = 5005
 server = "dose"
 datacenterport = 6663
@@ -77,7 +67,8 @@ class steuerung(Resource):
             except:
                 logger.warning("Config error, key 'System' missing.")
         if self.mqtttopics:
-            self.mqttclient = mqtt.Client(self.hostname+str(datetime.datetime.now().timestamp()))
+            #self.mqttclient = mqtt.Client(self.hostname+str(datetime.datetime.now().timestamp()))
+            self.mqttclient = mqtt.Client(self.hostname)
             self.mqttclient.on_connect = self.on_mqtt_connect
             self.mqttclient.on_message = self.on_mqtt_message
             # Then, connect to the broker.
@@ -1001,7 +992,6 @@ class steuerung(Resource):
             elif(status == 0):
                 self.garagentor = "auf"
                 self.mqttclient.publish("Garage/Tor/Zustand", self.garagentor)
-                publish.single("Garage/Tor", self.garagentor, hostname=self.mqtthost, client_id=self.hostname, auth = {"username":self.mqttuser, "password":self.mqttpass})
                 logger.debug(self.garagentor)
         except Exception as e:
             logger.error(e)
@@ -1028,12 +1018,11 @@ class steuerung(Resource):
                              "Temperature":val},
                              "TempUnit":"C"}
                 msg = json.dumps(msg)
-                publish.single(topic+"/SENSOR",
-                               msg,
-                               hostname=self.mqtthost,
-                               client_id=self.hostname,
-                               auth = {"username":self.mqttuser, "password":self.mqttpass})
-
+                self.mqttclient.publish(topic+"/SENSOR",
+                               msg)
+                               #hostname=self.mqtthost,
+                               #client_id=self.hostname,
+                               #auth = {"username":self.mqttuser, "password":self.mqttpass})
 
     def set_pumpe(self):
         '''
@@ -1042,7 +1031,6 @@ class steuerung(Resource):
         pumpT = threading.Thread(target=self._set_pumpe)
         pumpT.setDaemon(True)
         pumpT.start()
-
 
     def _set_pumpe(self):
         '''
@@ -1151,11 +1139,11 @@ class steuerung(Resource):
                     msg = {"Time":now,
                            "State":state}
                     msg = json.dumps(msg)
-                    publish.single(topic+"/VALVE",
-                                   msg,
-                                   hostname=self.mqtthost,
-                                   client_id=self.hostname,
-                                   auth = {"username":self.mqttuser, "password":self.mqttpass})
+                    self.mqttclient.publish(topic+"/VALVE",
+                                   msg)
+                                   #hostname=self.mqtthost,
+                                   #client_id=self.hostname,
+                                   #auth = {"username":self.mqttuser, "password":self.mqttpass})
         # Wenn die Umwälzpumpe nicht läuft, alles ausschalten:
         else:
             logger.debug("Umwaelzpumpe aus")
