@@ -108,13 +108,15 @@ Returns the measured forward flow temperature
 Returns the set forward flow temperature.
 
 ## /mixer/ff/mintemp
+Not yet implemented.
 ### method: GET
 Returns the minimum forward flow temperature
 
 ### method: PUT
 temp=28 (float): sets minimum forward flow temperature
 
-## /mixer/ffmaxtemp
+## /mixer/ff/maxtemp
+Not yet implemented.
 ### method: GET
 Returns the maximum forward flow temperature
 
@@ -122,6 +124,7 @@ Returns the maximum forward flow temperature
 temp=34 (float): sets maximum forward flow temperature
 
 ## /garage
+Not yet implemented.
 ### method: GET
 Returns state of garage door, or N/A if no garage door control available, Not yet implemented
 
@@ -129,4 +132,3 @@ Returns state of garage door, or N/A if no garage door control available, Not ye
 * action=auf: Opens door
 * action=zu: Closes door
 
-Not yet implemented.
