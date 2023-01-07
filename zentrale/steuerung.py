@@ -107,6 +107,7 @@ class steuerung(Resource):
                             self.clients[sensor]["isTemp"] = payload[key]["Temperature"]
                             self.sensorik[sensor]["PreviousValue"] = self.sensorik[sensor]["Value"]
                             self.sensorik[sensor]["Value"] = payload[key]["Temperature"]
+                            self.sensorik[sensor]["Time"] = payload["Time"]
                         except:
                             # Do nothing, if "Temperature" is not a key
                             pass
@@ -1034,27 +1035,24 @@ class steuerung(Resource):
 
     def read_sensor_values(self):
         for sensor in self.sensorik: #Iterate all sensors configured in ini-file
-            logger.debug("Sensor: " + sensor)
             now = datetime.datetime.now().replace(microsecond=0).isoformat()
-            self.sensorik[sensor]["Time"] = now
             pub = False # do not publish as MQTT telegram
+            val = -150 # initial value to make sure, variable is present
             if(self.sensorik[sensor]["ID"] in self.w1_slaves): # Do this, if iterated sensor is a 1w-sensor
                 val = round(self.w1.getValue(self.sensorik[sensor]["ID"]),1)
+                self.sensorik[sensor]["Value"] = val
+                self.sensorik[sensor]["Time"] = now
                 pub = True # publish as MQTT telegram
                 if(sensor in self.clients): 
                     self.clients[sensor]["isTemp"] = val
             if(self.sensorik[sensor]["ID"] == "ff_temp_target"):
                 val = self.mix.ff_temp_target
-                pub = True # publish as MQTT telegram
-            try:
                 self.sensorik[sensor]["Value"] = val
-            except Exception as e:
-                logger.debug("No value so far")
-                logger.debug(e)
+                self.sensorik[sensor]["Time"] = now
+                pub = True # publish as MQTT telegram
             if pub and self.sensorik[sensor]["PreviousValue"] != val:
                 self.sensorik[sensor]["PreviousValue"] = val
                 topic = self.name + "/" + sensor + "/" + self.hostname 
-                logger.info("Publishing topic " + topic) 
                 msg = {"Time":now,
                        self.sensorik[sensor]["System"]:
                             {"Id":self.sensorik[sensor]["ID"],
