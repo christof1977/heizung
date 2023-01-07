@@ -9,7 +9,7 @@ from steuerung import steuerung
 from flaskext.markdown import Markdown
 #from marshmallow import Schema, fields
 
-from resources.status import Status, Alive, HelpJsonCommands, HelpApi, FfIsTemp, FfSetTemp, Mixer
+from resources.status import Status, Alive, HelpJsonCommands, HelpApi, FfIsTemp, FfSetTemp, Mixer, Sensor
 from resources.room import Roomlist, RoomMode, RoomInfo, RoomStatus, RoomTimer, RoomShortTimer, RoomTemp, RoomNormTemp, Timer
 
 #class StatusSchema(Schema):
@@ -26,6 +26,7 @@ Markdown(app)
 steuerung = steuerung()
 api.add_resource(Alive, '/', resource_class_kwargs={'steuerung': steuerung})
 api.add_resource(Status, '/status', resource_class_kwargs={'steuerung': steuerung})
+api.add_resource(Sensor, '/status/sensor', resource_class_kwargs={'steuerung': steuerung})
 api.add_resource(HelpJsonCommands, '/help', resource_class_kwargs={'steuerung': steuerung})
 api.add_resource(HelpApi, '/restapi', resource_class_kwargs={'steuerung': steuerung})
 api.add_resource(Roomlist, '/room', resource_class_kwargs={'steuerung': steuerung})

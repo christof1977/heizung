@@ -91,19 +91,24 @@ class steuerung(Resource):
     def on_mqtt_message(self, client, userdata, msg):
         # Decode the message payload from Bytes to String.
         payload = msg.payload.decode('UTF-8')
+        # Move garage door if topic is Garage/Tor/Kommando
         if(msg.topic == "Garage/Tor/Kommando"):
             if(payload == "auf"):
                 self.set_tor("auf")
             else:
                 self.set_tor("zu")
+        # Iterate self.sensorik and see, if the received topic is in there:
         for sensor in self.sensorik:
-            if msg.topic in self.sensorik.get(sensor).values():
+            if msg.topic in self.sensorik.get(sensor).values(): # topic is stored in values of self.sensorik[sensor]
                 try:
-                    payload = json.loads(payload)
+                    payload = json.loads(payload) # See, if the MQTT payload is a json string, then iterate through keys and find key ["Temperature"]
                     for key in payload.keys():
                         try:
                             self.clients[sensor]["isTemp"] = payload[key]["Temperature"]
+                            self.sensorik[sensor]["PreviousValue"] = self.sensorik[sensor]["Value"]
+                            self.sensorik[sensor]["Value"] = payload[key]["Temperature"]
                         except:
+                            # Do nothing, if "Temperature" is not a key
                             pass
                 except:
                     logger.warning("Not a JSON string")
@@ -455,7 +460,6 @@ class steuerung(Resource):
         dts = "{:02d}:{:02d}:{:02d}".format(dt.hour, dt.minute, dt.second)
         return(json.dumps({"name":self.hostname,"answer":"Freilich", "time" : dts}))
 
-
     def get_status(self):
         """ function to determine status of system
 
@@ -501,6 +505,35 @@ class steuerung(Resource):
         ```
         """
         return(json.dumps(self.clients))
+
+    def get_sensor_values(self):
+        """ Returning all sensor values and config data
+
+        No command exisiting, just for REST-API.
+
+        Answer:
+        ```python
+        {
+         "AZ": {
+            "Type": "Temperatur",
+            "System": "MQTT",
+            "ID": "EG/Arbeitszimmer/Tasmota/SENSOR",
+            "Time": "2023-01-07T11:27:48",
+            "Value": 23.1,
+            "PreviousValue": 24.7
+          },
+          "WZ": {
+            "Type": "Temperatur",
+            "System": "MQTT",
+            "ID": "EG/Wohnzimmer/Tasmota/SENSOR",
+            "Time": "2023-01-07T11:27:48",
+            "Value": 20,
+            "PreviousValue": 20
+          }
+        }
+        ```
+        """
+        return(json.dumps(self.sensorik))
 
     def get_room_mode(self, room):
         """ Returning mode of room
@@ -871,7 +904,9 @@ class steuerung(Resource):
             self.sensorik[sensor]["Type"] = tmp[0]
             self.sensorik[sensor]["System"] = tmp[1]
             self.sensorik[sensor]["ID"] = tmp[2]
-            self.sensorik[sensor]["PreviousVal"] = 0
+            self.sensorik[sensor]["Time"] = ""
+            self.sensorik[sensor]["Value"] = -150
+            self.sensorik[sensor]["PreviousValue"] = -150
         self.pumpe = int(self.config['BASE']['Pumpe'])
         self.oekofen = int(self.config['BASE']['Oekofen'])
         try:
@@ -939,7 +974,8 @@ class steuerung(Resource):
             self.sensorik["VorlaufSoll"]["Type"] = "Temperatur"
             self.sensorik["VorlaufSoll"]["System"] = "Intern"
             self.sensorik["VorlaufSoll"]["ID"] = "ff_temp_target"
-            self.sensorik["VorlaufSoll"]["PreviousVal"] = 0
+            self.sensorik["VorlaufSoll"]["Value"] = -150
+            self.sensorik["VorlaufSoll"]["PreviousValue"] = -150
         except:
             self.mixer_addr = -1
             self.mixer_sens = -1
@@ -996,9 +1032,11 @@ class steuerung(Resource):
         except Exception as e:
             logger.error(e)
 
-    def get_sensor_values(self):
-        logger.debug(self.sensorik)
+    def read_sensor_values(self):
         for sensor in self.sensorik: #Iterate all sensors configured in ini-file
+            logger.debug("Sensor: " + sensor)
+            now = datetime.datetime.now().replace(microsecond=0).isoformat()
+            self.sensorik[sensor]["Time"] = now
             pub = False # do not publish as MQTT telegram
             if(self.sensorik[sensor]["ID"] in self.w1_slaves): # Do this, if iterated sensor is a 1w-sensor
                 val = round(self.w1.getValue(self.sensorik[sensor]["ID"]),1)
@@ -1008,10 +1046,15 @@ class steuerung(Resource):
             if(self.sensorik[sensor]["ID"] == "ff_temp_target"):
                 val = self.mix.ff_temp_target
                 pub = True # publish as MQTT telegram
-            if pub and self.sensorik[sensor]["PreviousVal"] != val:
-                self.sensorik[sensor]["PreviousVal"] = val
-                now = datetime.datetime.now().replace(microsecond=0).isoformat()
+            try:
+                self.sensorik[sensor]["Value"] = val
+            except Exception as e:
+                logger.debug("No value so far")
+                logger.debug(e)
+            if pub and self.sensorik[sensor]["PreviousValue"] != val:
+                self.sensorik[sensor]["PreviousValue"] = val
                 topic = self.name + "/" + sensor + "/" + self.hostname 
+                logger.info("Publishing topic " + topic) 
                 msg = {"Time":now,
                        self.sensorik[sensor]["System"]:
                             {"Id":self.sensorik[sensor]["ID"],
@@ -1195,7 +1238,7 @@ class steuerung(Resource):
                     logger.debug(self.mix.ff_temp_is)
                 if cnt >= 20:
                     cnt = 0
-                    self.get_sensor_values()
+                    self.read_sensor_values()
                     self.garagenmeldung(self.garagenmelder)
                 cnt+=1
                 time.sleep(1)

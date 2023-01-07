@@ -50,6 +50,14 @@ class HelpApi(Resource):
         headers = {'Content-Type': 'text/html'}
         return make_response(md_template_string,200,headers)
 
+class Sensor(Resource):
+    def __init__(self, **kwargs):
+        self.steuerung = kwargs['steuerung']
+
+    def get(self):
+        ret = json.loads(self.steuerung.get_sensor_values())
+        return ret
+
 class Mixer(Resource):
     def __init__(self, **kwargs):
         self.steuerung = kwargs['steuerung']

@@ -10,6 +10,11 @@ Returns if the service is alive.
 Returns the overall status
 ([/status](../status))
 
+## /status/sensor
+### method: GET
+Returns sensor information and measurements
+([/status/sensor](../status/sensor))
+
 ## /help
 ### method: GET
 Displays the function documentation and the JSON commands
