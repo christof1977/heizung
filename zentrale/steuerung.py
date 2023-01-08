@@ -67,16 +67,20 @@ class steuerung(Resource):
                     self.mqtttopics[sensor] = self.sensorik[sensor]["ID"]
             except:
                 logger.warning("Config error, key 'System' missing.")
-        if self.mqtttopics:
-            #self.mqttclient = mqtt.Client(self.hostname+str(datetime.datetime.now().timestamp()))
-            self.mqttclient = mqtt.Client(self.hostname)
-            self.mqttclient.on_connect = self.on_mqtt_connect
-            self.mqttclient.on_message = self.on_mqtt_message
-            # Then, connect to the broker.
-            self.mqttclient.username_pw_set(self.mqttuser, self.mqttpass)
-            self.mqttclient.connect(self.mqtthost, 1883, 60)
-            # Finally, process messages until a `client.disconnect()` is called.
-            self.mqttclient.loop_start()
+
+        #self.mqttclient = mqtt.Client(self.hostname+str(datetime.datetime.now().timestamp()))
+        self.mqttclient = mqtt.Client(self.hostname)
+        self.mqttclient.username_pw_set(self.mqttuser, self.mqttpass)
+        self.mqttclient.on_message = self.on_mqtt_message
+        self.mqttclient.on_connect = self.on_mqtt_connect
+        logger.info(self.sensorik)
+        logger.info("Setting Last Will and Testament")
+        self.mqttclient.will_set(self.name + "/" + self.hostname + "/LWT", "Offline", retain=True)
+        self.mqttclient.connect(self.mqtthost, 1883, 60)
+        logger.info("Sending LWT Online Message for " + sensor)
+        self.mqttclient.publish(self.name + "/" + self.hostname + "/LWT", "Online", retain=True)
+        self.mqttclient.loop_start()
+
         if(self.garagenkontakt != -1):
                 self.garagenmeldung(self.garagenmelder)
         self.run()
@@ -84,9 +88,10 @@ class steuerung(Resource):
     # The callback for when the client connects to the broker.
     def on_mqtt_connect(self, client, userdata, flags, rc):
         # After establishing a connection, subscribe to the input topic.
-        for topic in self.mqtttopics:
-            #logger.info("Subscribing to " + self.mqtttopics[topic])
-            client.subscribe(self.mqtttopics[topic])
+        if self.mqtttopics:
+            for topic in self.mqtttopics:
+                #logger.info("Subscribing to " + self.mqtttopics[topic])
+                client.subscribe(self.mqtttopics[topic])
 
     # The callback for when a message is received from the broker.
     def on_mqtt_message(self, client, userdata, msg):
@@ -909,7 +914,8 @@ class steuerung(Resource):
             self.sensorik[sensor]["Time"] = ""
             self.sensorik[sensor]["Value"] = -150
             self.sensorik[sensor]["PreviousValue"] = -150
-            if self.sensorik[sensor]["ID"] == "MQTT":
+            self.sensorik[sensor]["Topic"] = self.name + "/" + sensor + "/" + self.hostname 
+            if self.sensorik[sensor]["System"] == "MQTT":
                 self.sensorik[sensor]["Publish"] = False
             else:
                 self.sensorik[sensor]["Publish"] = True
@@ -981,6 +987,7 @@ class steuerung(Resource):
             self.sensorik["VorlaufSoll"]["Type"] = "Temperatur"
             self.sensorik["VorlaufSoll"]["System"] = "Intern"
             self.sensorik["VorlaufSoll"]["ID"] = "ff_temp_target"
+            self.sensorik["VorlaufSoll"]["Topic"] = self.name + "/VorlaufSoll/" + self.hostname
             self.sensorik["VorlaufSoll"]["Publish"] = True
             self.sensorik["VorlaufSoll"]["Value"] = -150
             self.sensorik["VorlaufSoll"]["PreviousValue"] = -150
@@ -1056,14 +1063,13 @@ class steuerung(Resource):
                 self.sensorik[sensor]["Time"] = now
             if self.sensorik[sensor]["Publish"] and self.sensorik[sensor]["PreviousValue"] != val:
                 self.sensorik[sensor]["PreviousValue"] = val
-                topic = self.name + "/" + sensor + "/" + self.hostname 
                 msg = {"Time":now,
                        self.sensorik[sensor]["System"]:
                             {"Id":self.sensorik[sensor]["ID"],
                              "Temperature":val},
                              "TempUnit":"C"}
                 msg = json.dumps(msg)
-                self.mqttclient.publish(topic+"/SENSOR", msg, retain=True)
+                self.mqttclient.publish(self.sensorik[sensor]["Topic"]+"/SENSOR", msg, retain=True)
                                #hostname=self.mqtthost,
                                #client_id=self.hostname,
                                #auth = {"username":self.mqttuser, "password":self.mqttpass})
@@ -1175,7 +1181,6 @@ class steuerung(Resource):
                 if(old != self.clients[client]["Status"]):
                     logger.info("State has changed: turning %s %s", client, self.clients[client]["Status"])
                     now = datetime.datetime.now().replace(microsecond=0).isoformat()
-                    topic = self.name + "/" + client + "/" + self.hostname
                     if self.clients[client]["Status"] == "on":
                         state = 1
                     else:
@@ -1183,7 +1188,7 @@ class steuerung(Resource):
                     msg = {"Time":now,
                            "State":state}
                     msg = json.dumps(msg)
-                    self.mqttclient.publish(topic+"/VALVE", msg, retain=True)
+                    self.mqttclient.publish(self.sensorik[client]["Topic"]+"/VALVE", msg, retain=True)
                                    #hostname=self.mqtthost,
                                    #client_id=self.hostname,
                                    #auth = {"username":self.mqttuser, "password":self.mqttpass})
