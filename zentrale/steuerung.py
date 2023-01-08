@@ -77,7 +77,7 @@ class steuerung(Resource):
         logger.info("Setting Last Will and Testament")
         self.mqttclient.will_set(self.name + "/" + self.hostname + "/LWT", "Offline", retain=True)
         self.mqttclient.connect(self.mqtthost, 1883, 60)
-        logger.info("Sending LWT Online Message for " + sensor)
+        logger.info("Sending LWT Online Message")
         self.mqttclient.publish(self.name + "/" + self.hostname + "/LWT", "Online", retain=True)
         self.mqttclient.loop_start()
 
