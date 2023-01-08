@@ -32,8 +32,6 @@ Die REST-API ist unter [REST-API](restapi.md) beschrieben.
 - Temperaturen über MQTT erhalten
 - Setzen von Timerregeln
 - Schreiben in Timerfiles
-- MQTT Retain
-- MQTT LWT
 - MQTT-Publish Pumpenstatus
 - MQTT-Publish bei Veränderung der restlichen Werte
 - Abfrage Umwälzpumpe über MQTT
