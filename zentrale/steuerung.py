@@ -9,7 +9,6 @@ import configparser
 import json
 from timer import timer
 from mixer import mixer
-from garage import Garage
 import syslog
 from libby import tempsensors
 from libby import remote
@@ -80,7 +79,12 @@ class steuerung(Resource):
         self.mqttclient.loop_start()
 
         if(self.garagenkontakt != -1):
-                self.garagenmeldung(self.garagenmelder)
+            from garage import Garage
+            self.garage = Garage(kontakt=self.garagenkontakt,
+                                 melder=self.garagenmelder,
+                                 mqtthost=self.mqtthost,
+                                 mqttuser=self.mqttuser,
+                                 mqttpass=self.mqttpass)
         self.run()
 
     # The callback for when the client connects to the broker.
@@ -903,11 +907,9 @@ class steuerung(Resource):
         logger.info(self.timerfile)
         try:
             self.garagenkontakt = int(self.config['GARAGE']['Kontakt'])
-        except:
-            self.garagenkontakt = -1
-        try:
             self.garagenmelder = int(self.config['GARAGE']['Melder'])
         except:
+            self.garagenkontakt = -1
             self.garagenmelder = -1
         try:
             self.mixer_addr = hex(int(self.config['BASE']['Mischer'],16))
@@ -1147,7 +1149,7 @@ class steuerung(Resource):
                 if cnt >= 20:
                     cnt = 0
                     self.read_sensor_values()
-                    self.garagenmeldung(self.garagenmelder)
+                    self.garage.garagenmeldung(self.garagenmelder)
                 cnt+=1
                 time.sleep(1)
             except KeyboardInterrupt: # CTRL+C exit
