@@ -18,7 +18,6 @@ from threading import Thread
 import logging
 import select
 import paho.mqtt.client as mqtt
-#import paho.mqtt.publish as publish
 import prctl
 
 from flask import Flask
@@ -58,8 +57,6 @@ class steuerung(Resource):
 
         # MQTT Topics to subscribe to (receiving vales)
         self.mqtttopics = {}
-        if(self.garagenkontakt != -1):
-                self.mqtttopics["Garage"] = "Garage/Tor/Kommando"
         for sensor in self.sensorik:
             logger.info("Sensor " + sensor + ": " + str(self.sensorik[sensor]))
             try:
@@ -82,7 +79,12 @@ class steuerung(Resource):
         self.mqttclient.loop_start()
 
         if(self.garagenkontakt != -1):
-                self.garagenmeldung(self.garagenmelder)
+            from garage import Garage
+            self.garage = Garage(kontakt=self.garagenkontakt,
+                                 melder=self.garagenmelder,
+                                 mqtthost=self.mqtthost,
+                                 mqttuser=self.mqttuser,
+                                 mqttpass=self.mqttpass)
         self.run()
 
     # The callback for when the client connects to the broker.
@@ -97,12 +99,6 @@ class steuerung(Resource):
     def on_mqtt_message(self, client, userdata, msg):
         # Decode the message payload from Bytes to String.
         payload = msg.payload.decode('UTF-8')
-        # Move garage door if topic is Garage/Tor/Kommando
-        if(msg.topic == "Garage/Tor/Kommando"):
-            if(payload == "auf"):
-                self.set_tor("auf")
-            else:
-                self.set_tor("zu")
         # Iterate self.sensorik and see, if the received topic is in there:
         for sensor in self.sensorik:
             if msg.topic in self.sensorik.get(sensor).values(): # topic is stored in values of self.sensorik[sensor]
@@ -249,75 +245,13 @@ class steuerung(Resource):
         elif(jcmd['command'] == "getCounter"):
             ret = self.get_counter()
         elif(jcmd['command'] == "setTor"):
-            ret = self.set_tor(jcmd['Request'])
+            ret = self.garage.set_tor(jcmd['Request'])
         elif(jcmd['command'] == "getTor"):
-            ret = self.get_tor()
+            ret = self.garage.get_tor()
         else:
              ret = json.dumps({"answer":"Fehler","Wert":"Kein gültiges Kommando"})
         return(ret)
 
-    def _get_tor(self):
-        if(self.garagenmelder != -1):
-            status = GPIO.input(self.garagenmelder)
-            if(status == 1):
-                return("zu")
-            else:
-                return("auf")
-        else:
-            return("Error")
-
-    def get_tor(self):
-        """ This function returns the state of the garage door if available. The return format is a JSON-String.  
-        The function can be called via JSON-Command-String: ```'{"command" : "getTor"}'```
-        
-        ```python
-        open: '{"Answer":"getTor","Result":"auf"}'
-        closed: '{"Answer":"getTor","Result":"zu"}'
-        error: '{"Answer":"getTor","Result":"Error","Value":"Tor? Welches Tor?"}'
-        ```
-
-        """
-        ret = self._get_tor()
-        if(ret == "Error"):
-            ret = json.dumps({"Answer":"getTor","Result":"Error","Value":"Tor? Welches Tor?"})
-        else:
-            ret = json.dumps({"Answer":"getTor","Result":ret})
-        return(ret)
-
-    def set_tor(self, val):
-        """ This function triggers the switch of the Garagentor. When it's open, it closes and vice versa.
-        The return of the function is either a success or a error message.
-        
-        Control commands look as follows:
-        ```python
-        open: '{"command" : "setTor" , "Request":"auf"}'
-        closed: '{"command" : "setTor" , "Request":"zu"}'
-        ```
-        
-        Answer:
-        ```python
-        Success: '{"Answer":"setTor","Request":"xxx","Result":"Success"}'
-        Error: '{"Answer":"setTor","Request":"xxx","Result":"Error"})'
-        No door in system: '{"Answer":"setTor","Request":"xxx","Result":"Error","Value":"Tor? Welches Tor?"}'
-        Door already in requested state: '{"Answer":"setTor","Request":"xxx","Result":"Tor ist doch schon xxx, Doldi."}'
-        ```
-        """
-        if self.garagenkontakt > 0:
-            if(val ==  self._get_tor()):
-                logger.info("Gargentor ist doch schon "+ val + ". Fuesse stillhalten")
-                ret = json.dumps({"Answer":"setTor","Request":val,"Result":"Tor ist doch schon " + val + ", Doldi."})
-            else:
-                try:
-                    logger.info("Moving Garagentor")
-                    GPIO.output(self.garagenkontakt, 1)
-                    time.sleep(.2)
-                    GPIO.output(self.garagenkontakt, 0)
-                    ret = json.dumps({"Answer":"setTor","Request":val,"Result":"Success"})
-                except:
-                    ret = json.dumps({"Answer":"setTor","Request":val,"Result":"Error"})
-        else:
-            ret = json.dumps({"Answer":"setTor","Request":val,"Result":"Error","Value":"Tor? Welches Tor?"})
-        return(ret)
 
     def get_rooms(self):
         """ Return available rooms
@@ -973,11 +907,9 @@ class steuerung(Resource):
         logger.info(self.timerfile)
         try:
             self.garagenkontakt = int(self.config['GARAGE']['Kontakt'])
-        except:
-            self.garagenkontakt = -1
-        try:
             self.garagenmelder = int(self.config['GARAGE']['Melder'])
         except:
+            self.garagenkontakt = -1
             self.garagenmelder = -1
         try:
             self.mixer_addr = hex(int(self.config['BASE']['Mischer'],16))
@@ -1019,33 +951,6 @@ class steuerung(Resource):
             logger.info("Setting BMC " + str(self.pumpe) + " as output")
         else:
             logger.info("Not using pump")
-        if(self.garagenkontakt > 0):
-            GPIO.setup(self.garagenkontakt, GPIO.OUT)
-            GPIO.output(self.garagenkontakt, 0)
-            logger.info("Setting Garagenkontakt: %s", str(self.garagenkontakt))
-        if(self.garagenmelder > 0):
-            GPIO.setup(self.garagenmelder, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-            logger.info("Setting Garagenmelder: %s", str(self.garagenmelder))
-            GPIO.add_event_detect(self.garagenmelder, GPIO.BOTH, callback = self.garagenmeldung, bouncetime = 250)
-
-    def garagenmeldung(self, channel):
-        logger.debug("GARAGENMELDA: %s", str(self.garagenmelder))
-        logger.debug("Channel: %s", str(channel))
-        if(channel == self.garagenmelder and channel > 0):
-            status = GPIO.input(channel)
-        else:
-            return -1
-        try:
-            if(status == 1):
-                self.garagentor = "zu"
-                self.mqttclient.publish("Garage/Tor/Zustand", self.garagentor, retain=True)
-                logger.debug(self.garagentor)
-            elif(status == 0):
-                self.garagentor = "auf"
-                self.mqttclient.publish("Garage/Tor/Zustand", self.garagentor, retain=True)
-                logger.debug(self.garagentor)
-        except Exception as e:
-            logger.error(e)
 
     def read_sensor_values(self):
         for sensor in self.sensorik: #Iterate all sensors configured in ini-file
@@ -1244,7 +1149,7 @@ class steuerung(Resource):
                 if cnt >= 20:
                     cnt = 0
                     self.read_sensor_values()
-                    self.garagenmeldung(self.garagenmelder)
+                    self.garage.garagenmeldung(self.garagenmelder)
                 cnt+=1
                 time.sleep(1)
             except KeyboardInterrupt: # CTRL+C exit
