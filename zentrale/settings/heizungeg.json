@@ -1,0 +1,87 @@
+{
+  "General": {
+    "Name": "EG",
+    "Port": 5012,
+    "UnusedRelais": 25,
+    "Hysterese": 0.4,
+    "Polarity": "inverse",
+    "Pump": -1,
+    "Oekofen": 1,
+    "Timerfile": "timer_heizungeg.json",
+    "Mqtt": {
+      "host": "mqtt.plattentoni.de",
+      "user": "raspi",
+      "password": "parsi"
+    },
+    "Topic":"HeizungEG"
+  },
+  "Clients": {
+    "WZ": {
+      "Name": "Wohnzimmer",
+      "Relais": [
+        18,
+        10
+      ],
+      "Sensors": {
+        "Temp1": {
+          "Metric": "Temperature",
+          "Unit": "C",
+          "System": "MQTT",
+          "Topic": "EG/Wohnzimmer/Tasmota/SENSOR"
+        }
+      }
+    },
+    "SZ": {
+      "Name": "Schlafzimmer",
+      "Relais": [
+        27
+      ],
+      "Sensors": {
+
+      }
+    },
+    "AZ": {
+      "Name": "Arbeitszimmer",
+      "Relais": [
+        23
+      ],
+      "Sensors": {
+        "Temp1": {
+          "Metric": "Temperature",
+          "Unit": "C",
+          "System": "MQTT",
+          "Topic": "EG/Arbeitszimmer/Tasmota/SENSOR"
+        }
+      }
+    },
+    "BadEG": {
+      "Name": "BadEG",
+      "Relais": [
+        24
+      ],
+      "Sensors": {
+
+      }
+    },
+    "Kueche": {
+      "Name": "Kueche",
+      "Relais": [
+        22
+      ],
+      "Sensors": {
+
+      }
+    }
+  },
+  "Counter": {
+    "VerbrauchHeizungEG": {
+      "Metric": "Heat",
+      "Address": 0
+    },
+    "VerbrauchWW": {
+      "Metric": "Heat",
+      "Address": 1
+    }
+  }
+}
+
