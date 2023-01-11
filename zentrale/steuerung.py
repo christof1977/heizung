@@ -1139,9 +1139,9 @@ class steuerung(Resource):
         prctl.set_name("Running runner")
         while True:
             try:
+                self.read_sensor_values()
                 if self.mixer_sens in self.sensorik:
                     logger.debug(self.w1.getValue(self.sensorik[self.mixer_sens]["ID"]))
-                    self.read_sensor_values()
                     self.mix.ff_temp_is = self.w1.getValue(self.sensorik[self.mixer_sens]["ID"])
                     logger.debug(self.mix.ff_temp_is)
                 time.sleep(5)
