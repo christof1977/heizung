@@ -879,7 +879,7 @@ class steuerung(Resource):
         for client in clients:
             self.clients[client] = {}
             self.clients[client]["Relais"] = relais[i]
-            self.clients[client]["Status"] = "off"
+            self.clients[client]["Status"] = "undef"
             self.clients[client]["Mode"] = "auto"
             self.clients[client]["setMode"] = "auto"
             self.clients[client]["setWindow"] = "auto"
@@ -1093,10 +1093,8 @@ class steuerung(Resource):
                     msg = {"Time":now,
                            "State":state}
                     msg = json.dumps(msg)
-                    self.mqttclient.publish(self.sensorik[client]["Topic"]+"/VALVE", msg, retain=True)
-                                   #hostname=self.mqtthost,
-                                   #client_id=self.hostname,
-                                   #auth = {"username":self.mqttuser, "password":self.mqttpass})
+                    topic = self.name + "/" + self.clients[client]["Name"] + "/" + self.hostname + "/VALVE"
+                    self.mqttclient.publish(topic, msg, retain=True)
         # Wenn die Umwälzpumpe nicht läuft, alles ausschalten:
         else:
             logger.debug("Umwaelzpumpe aus")
@@ -1139,19 +1137,14 @@ class steuerung(Resource):
 
     def _run(self):
         prctl.set_name("Running runner")
-        cnt = 20
         while True:
             try:
                 if self.mixer_sens in self.sensorik:
                     logger.debug(self.w1.getValue(self.sensorik[self.mixer_sens]["ID"]))
+                    self.read_sensor_values()
                     self.mix.ff_temp_is = self.w1.getValue(self.sensorik[self.mixer_sens]["ID"])
                     logger.debug(self.mix.ff_temp_is)
-                if cnt >= 20:
-                    cnt = 0
-                    self.read_sensor_values()
-                    self.garage.garagenmeldung(self.garagenmelder)
-                cnt+=1
-                time.sleep(1)
+                time.sleep(5)
             except KeyboardInterrupt: # CTRL+C exit
                 self.stop()
                 break
