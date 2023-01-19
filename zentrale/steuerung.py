@@ -125,7 +125,7 @@ class steuerung(Resource):
     def _udpRx(self):
          prctl.set_name("udpRx")
          port =  6664
-         logger.info("Starting UDP client on port ", port)
+         logger.info("Starting UDP client on port " + str(port))
          udpclient = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)  # UDP
          udpclient.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
          udpclient.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -148,7 +148,7 @@ class steuerung(Resource):
                      logger.warning(str(e))
 
     def udpServer(self):
-        logger.info("Starting UDP-Server at " + self.basehost + ":" + str(udp_port))
+        logger.info("Starting UDP-Server on port " + str(udp_port))
         self.udpSock = socket.socket( socket.AF_INET,  socket.SOCK_DGRAM )
         self.udpSock.bind( (self.basehost,udp_port) )
 
@@ -158,7 +158,6 @@ class steuerung(Resource):
 
     def _udpServer(self):
         prctl.set_name("udpServer")
-        logger.info("Server laaft")
         while(not self.t_stop.is_set()):
             try:
                 data, addr = self.udpSock.recvfrom( 1024 )# Puffer-Groesse ist 1024 Bytes.
