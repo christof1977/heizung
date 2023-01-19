@@ -125,7 +125,7 @@ class steuerung(Resource):
     def _udpRx(self):
          prctl.set_name("udpRx")
          port =  6664
-         print("Starting UDP client on port ", port)
+         logger.info("Starting UDP client on port ", port)
          udpclient = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)  # UDP
          udpclient.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
          udpclient.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
