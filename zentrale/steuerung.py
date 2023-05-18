@@ -736,24 +736,33 @@ class steuerung(Resource):
         mb = mbus.mbus(address=self.zaehleraddr[idx])
         result = mb.do_char_dev()
         job = json.loads(result)
-        energy = []
-        for i in (job['body']['records']):
-            if i['type'] == 'VIFUnit.ENERGY_WH':
-                energy.append(float(i['value']))
-            if i['type'] == 'VIFUnit.FLOW_TEMPERATURE':
-                flow_temp = float(i['value'])
-            if i['type'] == 'VIFUnit.RETURN_TEMPERATURE':
-                return_temp =float(i['value'])
-            if i['type'] == 'VIFUnit.POWER_W' and i['function'] == 'FunctionType.INSTANTANEOUS_VALUE':
-                power = float(i['value'])
-            if i['type'] == 'VIFUnit.VOLUME_FLOW' and i['function'] == 'FunctionType.INSTANTANEOUS_VALUE':
-                flow = float(i['value'])
-        data = {}
-        data["Energy"] = {"Value":max(energy), "Unit": "Wh"}
-        data["ForwardFlow"] = {"Value":flow_temp, "Unit":"°C"}
-        data["ReturnFlow"] = {"Value":return_temp, "Unit":"°C"}
-        data["Power"] = {"Value":power, "Unit":"W"}
-        data["Flow"] = {"Value":round(flow*1000,2), "Unit":"l/h"}
+        if job['body']['header']['medium'] in ["0x4", "0xb"]:
+            energy = []
+            for i in (job['body']['records']):
+                if i['type'] == 'VIFUnit.ENERGY_WH': #WMZ Energie in Wh
+                    energy.append(float(i['value']))
+                if i['type'] == 'VIFUnit.FLOW_TEMPERATURE': #WMZ Vorlauftemperatur
+                    flow_temp = float(i['value'])
+                if i['type'] == 'VIFUnit.RETURN_TEMPERATURE': #WMZ Ruecklauftemperatur
+                    return_temp =float(i['value'])
+                if i['type'] == 'VIFUnit.POWER_W' and i['function'] == 'FunctionType.INSTANTANEOUS_VALUE': #WMZ Momentanleistung in W
+                    power = float(i['value'])
+                if i['type'] == 'VIFUnit.VOLUME_FLOW' and i['function'] == 'FunctionType.INSTANTANEOUS_VALUE': #WMZ Momemtaner Durchfluss in l/h
+                    flow = float(i['value'])
+            data = {}
+            data["Type"] = "Energy"
+            data["Energy"] = {"Value":max(energy), "Unit": "Wh"}
+            data["ForwardFlow"] = {"Value":flow_temp, "Unit":"°C"}
+            data["ReturnFlow"] = {"Value":return_temp, "Unit":"°C"}
+            data["Power"] = {"Value":power, "Unit":"W"}
+            data["Flow"] = {"Value":round(flow*1000,2), "Unit":"l/h"}
+        elif job['body']['header']['medium'] in ["0x6", "0x7"]:
+            for i in (job['body']['records']):
+                if i['type'] == 'VIFUnit.VOLUME' and i['function'] == 'FunctionType.INSTANTANEOUS_VALUE' and i['storage_number'] == 0: #Wasserzaehler Wert
+                    volume = float(i['value'])
+            data = {}
+            data["Type"] = "Volume"
+            data["Volume"] = {"Value":volume, "Unit": "m3"}
         logger.info(data)
         return(json.dumps({"Floor" : self.name, "Counter" : self.zaehler[idx], "Data" : data}))
 
