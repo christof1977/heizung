@@ -19,6 +19,7 @@ import logging
 import select
 import paho.mqtt.client as mqtt
 import prctl
+import schedule
 
 from flask import Flask
 from flask import request
@@ -36,7 +37,6 @@ class steuerung(Resource):
     def __init__(self):
         self.t_stop = threading.Event()
         self.read_config()
-        self.system = {"ModeReset":"2:00"}
         
         self.set_hw()
         if(self.mixer_addr != -1):
@@ -85,6 +85,15 @@ class steuerung(Resource):
                                  mqtthost=self.mqtthost,
                                  mqttuser=self.mqttuser,
                                  mqttpass=self.mqttpass)
+        if(self.system["ModeReset"]!="off"):
+            try:
+                schedule.every().day.at(self.system["ModeReset"]).do(self.check_reset)
+                logger.info("Scheduled mode reset to {}".format(self.system["ModeReset"]))
+            except Exception as e:
+                logger.warning("Scheduling time not valid")
+                logger.warning(e)
+                logger.warning(self.system["ModeReset"])
+
         self.run()
 
     # The callback for when the client connects to the broker.
@@ -767,17 +776,9 @@ class steuerung(Resource):
         return(json.dumps({"Floor" : self.name, "Counter" : self.zaehler[idx], "Data" : data}))
 
     def check_reset(self):
-        if(self.system["ModeReset"]!="off"):
-            now = datetime.datetime.now()
-            now_h = int(now.hour) 
-            now_m = int(now.minute)
-            res_h = int(self.system["ModeReset"].split(":")[0])
-            res_m = int(self.system["ModeReset"].split(":")[1])
-            if(now_h == res_h):
-                if(now_m == res_m or now_m == res_m+1):
-                    logger.info("Resetting mode to auto")
-                    for client in self.clients:
-                        self.clients[client]["Mode"] = "auto"
+        for client in self.clients:
+            self.clients[client]["Mode"] = "auto"
+            logger.info("Resetting {} mode to auto".format(client))
 
     def short_timer(self):
         '''
@@ -937,6 +938,8 @@ class steuerung(Resource):
         self.mqtthost = self.config['MQTT']['mqtthost']
         self.mqttuser = self.config['MQTT']['mqttuser']
         self.mqttpass = self.config['MQTT']['mqttpass']
+        self.system = {}
+        self.system["ModeReset"] = self.config['BASE']['ModeReset']
 
 
     def set_hw(self): 
@@ -1062,7 +1065,6 @@ class steuerung(Resource):
         heating circuitsare turned off.
         '''
         logger.debug("Running set_status")
-        self.check_reset() # Schaut, ob manuelle Modi auf auto zurückgesetzte werden müssen
         # Schauen, ob die Umwaelzpumpe läuft
         if(self.get_oekofen_pumpe()):
             logger.debug("Umwaelzpumpe an")
@@ -1146,6 +1148,7 @@ class steuerung(Resource):
     def _run(self):
         prctl.set_name("Running runner")
         while True:
+            schedule.run_pending()
             try:
                 self.read_sensor_values()
                 if self.mixer_sens in self.sensorik:
