@@ -768,7 +768,7 @@ class steuerung(Resource):
         elif job['body']['header']['medium'] in ["0x6", "0x7"]:
             for i in (job['body']['records']):
                 if i['type'] == 'VIFUnit.VOLUME' and i['function'] == 'FunctionType.INSTANTANEOUS_VALUE' and i['storage_number'] == 0: #Wasserzaehler Wert
-                    volume = float(i['value'])
+                    volume = float("{:.3f}".format(i['value']))
             data = {}
             data["Type"] = "Volume"
             data["Volume"] = {"Value":volume, "Unit": "m3"}
