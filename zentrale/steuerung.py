@@ -101,7 +101,7 @@ class steuerung(Resource):
         # After establishing a connection, subscribe to the input topic.
         if self.mqtttopics:
             for topic in self.mqtttopics:
-                #logger.info("Subscribing to " + self.mqtttopics[topic])
+                logger.info("Subscribing to " + self.mqtttopics[topic])
                 client.subscribe(self.mqtttopics[topic])
 
     # The callback for when a message is received from the broker.
@@ -113,17 +113,31 @@ class steuerung(Resource):
             if msg.topic in self.sensorik.get(sensor).values(): # topic is stored in values of self.sensorik[sensor]
                 try:
                     payload = json.loads(payload) # See, if the MQTT payload is a json string, then iterate through keys and find key ["Temperature"]
+                    # payload.keys contains different keys, and only one contains a dict with a key "Temperature". If this one isn't found, the code ends up
+                    # in the except block, nothing is done.
+                    # As soon as the key "Temperature" is found, the previous value is stored and the new value and time stamp are written to the storage
                     for key in payload.keys():
                         try:
                             self.clients[sensor]["isTemp"] = payload[key]["Temperature"]
                             self.sensorik[sensor]["PreviousValue"] = self.sensorik[sensor]["Value"]
                             self.sensorik[sensor]["Value"] = payload[key]["Temperature"]
                             self.sensorik[sensor]["Time"] = payload["Time"]
-                        except:
+                        except Exception as e:
                             # Do nothing, if "Temperature" is not a key
                             pass
-                except:
+                except AttributeError:
+                    # This topics contains the state of the heating pump (on/off) and is written to self.umwaelzpumpe.
+                    # If the configuration disables the dependency of the Oekofen heating, the value is set to 1
+                    if msg.topic == "oekofen/hk1/L_pump":
+                        if(self.oekofen == 0):
+                            self.umwaelzpumpe = 1
+                        elif payload == "1" or payload == 1:
+                            self.umwaelzpumpe = 1
+                        else:
+                            self.umwaelzpumpe = 0
+                except Exception as e:
                     logger.warning("Not a JSON string")
+
 
     def udpRx(self):
          self.udpRxTstop = threading.Event()
@@ -864,6 +878,7 @@ class steuerung(Resource):
                 self.sensorik[sensor]["Publish"] = True
         self.pumpe = int(self.config['BASE']['Pumpe'])
         self.oekofen = int(self.config['BASE']['Oekofen'])
+        self.umwaelzpumpe = 1
         # See, if we have energy meters configured (M-Bus)
         try:
             self.zaehler = self.config['BASE']['Zaehler'].split(";")
@@ -1059,14 +1074,15 @@ class steuerung(Resource):
         controlled by the timer.json file and the room temperature.
         A heating circuit is switched on, when we are within the on-time and the room
         temperature is below the set room temperature.
-        It will be checked, if a manual mode (on/off) is selectedm this overrides automatic mode,
+        It will be checked, if a manual mode (on/off) is selected, this overrides automatic mode,
         this includes the Shorttimer function.
         Last but not least, is is checked, if the main heating pump is running. If not, all
         heating circuitsare turned off.
         '''
         logger.debug("Running set_status")
         # Schauen, ob die Umwaelzpumpe läuft
-        if(self.get_oekofen_pumpe()):
+        #if(self.get_oekofen_pumpe()):
+        if(self.umwaelzpumpe == 1):
             logger.debug("Umwaelzpumpe an")
             for client in self.clients:
                 # Hole Wert (on/off) aus Timerfile 
@@ -1109,8 +1125,21 @@ class steuerung(Resource):
         else:
             logger.debug("Umwaelzpumpe aus")
             for client in self.clients:
-                self.clients[client]["Status"] = "off"
                 logger.debug("heating pump off, setting "+ client +" state to " + self.clients[client]["Status"])
+                old = self.clients[client]["Status"]
+                self.clients[client]["Status"] = "off"
+                if(old != self.clients[client]["Status"]):
+                    logger.info("State has changed: turning %s %s", client, self.clients[client]["Status"])
+                    now = datetime.datetime.now().replace(microsecond=0).isoformat()
+                    if self.clients[client]["Status"] == "on":
+                        state = 1
+                    else:
+                        state = 0
+                    msg = {"Time":now,
+                           "State":state}
+                    msg = json.dumps(msg)
+                    topic = self.name + "/" + self.clients[client]["Name"] + "/" + self.hostname + "/VALVE"
+                    self.mqttclient.publish(topic, msg, retain=True)
         self.hw_state()
 
     def hw_state(self): #OK
