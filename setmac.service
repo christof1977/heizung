@@ -6,7 +6,7 @@ After=sys-subsystem-net-devices-eth0.device
 
 [Service]
 Type=oneshot
-ExecStart=/home/pi/setmac.sh
+ExecStart=/home/heizung/heizung/setmac.sh
 
 [Install]
 #WantedBy=multi-user.target
