@@ -29,7 +29,7 @@ class mixer():
         threading.Thread.__init__(self)
         self.running = False
         self.min_ff_temp = 28
-        self.max_ff_temp = 34
+        self.max_ff_temp = 35
         self.mix_time_c = .1
         self.mix_time_m = .1
         self.mix_time_f = .05
@@ -54,7 +54,7 @@ class mixer():
         which correspondends to the measured actual otuside temperature
         Heizkurve
         '''
-        ff_temp = -0.15 * is_temp + 33.25
+        ff_temp = -0.15 * is_temp + 34
         if(ff_temp < self.min_ff_temp):
             ff_temp = self.min_ff_temp
         if(ff_temp > self.max_ff_temp):
@@ -63,6 +63,7 @@ class mixer():
         if not self.running:
             self.ff_temp_target_val = 8.0
         logger.debug("ff_temp_target_val = " + str(self.ff_temp_target_val) + "°C")
+        logger.debug("ff_temp_istemp_val = " + str(is_temp) + "°C")
 
     @property
     def ff_temp_is(self) -> float:
