@@ -23,7 +23,7 @@
         10
       ],
       "Sensors": {
-        "Temp1": {
+        "Room1": {
           "Metric": "Temperature",
           "Unit": "C",
           "System": "MQTT",
@@ -46,7 +46,7 @@
         23
       ],
       "Sensors": {
-        "Temp1": {
+        "Room1": {
           "Metric": "Temperature",
           "Unit": "C",
           "System": "MQTT",
@@ -69,6 +69,13 @@
         22
       ],
       "Sensors": {
+        "ReturnFlow": {
+          "Metric": "Temperature",
+          "Unit": "C",
+          "System": "1W",
+          "Type": "DS18B20",
+          "ID": "28-041700aed0ff"
+        }
 
       }
     }
@@ -81,6 +88,11 @@
     "VerbrauchWW": {
       "Metric": "Heat",
       "Address": 1
+    }
+    ,
+    "Gartenwasser": {
+      "Metric": "Volume",
+      "Address": 2
     }
   }
 }
