@@ -74,7 +74,7 @@
           "Unit": "C",
           "System": "1W",
           "Type": "DS18B20",
-          "ID": "28-041700aed0ff"
+          "Topic": "28-041700aed0ff"
         }
 
       }

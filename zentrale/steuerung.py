@@ -5,7 +5,6 @@ import RPi.GPIO as GPIO
 import sys
 import time
 import datetime
-import configparser
 import json
 from timer import timer
 from mixer import mixer
@@ -848,36 +847,41 @@ class steuerung(Resource):
         realpath = os.path.realpath(__file__)
         basepath = os.path.split(realpath)[0]
         setpath = os.path.join(basepath, 'settings')
-        inifile = os.path.join(setpath, self.hostname + '.ini')
+        configfile = os.path.join(setpath, self.hostname + '.json')
 
-        self.config = configparser.ConfigParser()
-        self.config.optionxform = str
-        logger.info("Loading " + inifile)
-        self.config.read(inifile)
+        logger.info("Loading " + configfile)
+        with open(configfile) as f:
+            config = json.load(f)
+        #logger.info(config)
 
-        self.baseport = int(self.config['BASE']['Port'])
-        self.hysterese = float(self.config['BASE']['Hysterese'])
-        clients = self.config['BASE']['Clients'].split(";")
-        names = self.config['BASE']['Names'].split(";")
-        self.name = self.config['BASE']['Name']
+        self.baseport = int(config['General']['Port'])
+        self.hysterese = float(config['General']['Hysterese'])
+        self.name = config['General']['Name']
+        #clients = self.config['BASE']['Clients'].split(";")
+        ##clients = self.config['Clients'].keys() 
+        ##logger.info(self.clients)
         self.sensorik = {}
-        sensorik = dict(self.config.items('SENSORS'))
-        for sensor in sensorik:
-            tmp = sensorik[sensor].split(", ")
-            self.sensorik[sensor] = {}
-            self.sensorik[sensor]["Type"] = tmp[0]
-            self.sensorik[sensor]["System"] = tmp[1]
-            self.sensorik[sensor]["ID"] = tmp[2]
-            self.sensorik[sensor]["Time"] = ""
-            self.sensorik[sensor]["Value"] = -150
-            self.sensorik[sensor]["PreviousValue"] = -150
-            self.sensorik[sensor]["Topic"] = self.name + "/" + sensor + "/" + self.hostname 
-            if self.sensorik[sensor]["System"] == "MQTT":
-                self.sensorik[sensor]["Publish"] = False
-            else:
-                self.sensorik[sensor]["Publish"] = True
-        self.pumpe = int(self.config['BASE']['Pumpe'])
-        self.oekofen = int(self.config['BASE']['Oekofen'])
+        for c in config["Clients"]:
+            sensordict = config["Clients"][c]["Sensors"]
+            if sensordict:
+                for sensor in sensordict:
+                    pass
+                sensordict = sensordict[sensor]
+                self.sensorik[sensor] = {}
+                self.sensorik[sensor]["Type"] = sensordict["Metric"]
+                self.sensorik[sensor]["System"] = sensordict["System"]
+                self.sensorik[sensor]["ID"] = sensordict["Topic"]
+                self.sensorik[sensor]["Time"] = ""
+                self.sensorik[sensor]["Value"] = -150
+                self.sensorik[sensor]["PreviousValue"] = -150
+                self.sensorik[sensor]["Topic"] = self.name + "/" + sensor + "/" + self.hostname 
+                if self.sensorik[sensor]["System"] == "MQTT":
+                    self.sensorik[sensor]["Publish"] = False
+                else:
+                    self.sensorik[sensor]["Publish"] = True
+        logger.info(self.sensorik)
+        self.pumpe = int(config['General']['Pump'])
+        self.oekofen = int(config['General']['Oekofen'])
         self.umwaelzpumpe = 1
         # See, if we have energy meters configured (M-Bus)
         try:
