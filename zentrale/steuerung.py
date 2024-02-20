@@ -25,8 +25,6 @@ from flask import request
 from flask_restful import Api
 from flask_restful import Resource, abort
 
-server = "dose"
-datacenterport = 6663
 logger = logging.getLogger('Heizung')
 #logger.setLevel(logging.DEBUG)
 logger.setLevel(logging.INFO)
@@ -34,6 +32,9 @@ logger.setLevel(logging.INFO)
 class steuerung(Resource):
     def __init__(self):
         self.t_stop = threading.Event()
+        # Create empty dict for mqtttopics
+        self.mqtttopics = {}
+
         self.read_config()
         
         self.set_hw()
@@ -53,7 +54,6 @@ class steuerung(Resource):
         self.udpRx()
 
         # MQTT Topics to subscribe to (receiving vales)
-        self.mqtttopics = {}
         for sensor in self.sensorik:
             logger.info("Sensor " + sensor + ": " + str(self.sensorik[sensor]))
             try:
@@ -61,7 +61,7 @@ class steuerung(Resource):
                     self.mqtttopics[sensor] = self.sensorik[sensor]["ID"]
             except:
                 logger.warning("Config error, key 'System' missing.")
-        logger.info(self.mqtttopics)
+        logger.info("MQTT Topics: " + str(self.mqtttopics))
 
         self.mqttclient = mqtt.Client(self.hostname+str(datetime.datetime.now().timestamp()))
         #self.mqttclient = mqtt.Client(self.hostname)
@@ -124,18 +124,18 @@ class steuerung(Resource):
                         except Exception as e:
                             # Do nothing, if "Temperature" is not a key
                             pass
-                except AttributeError:
-                    # This topics contains the state of the heating pump (on/off) and is written to self.umwaelzpumpe.
-                    # If the configuration disables the dependency of the Oekofen heating, the value is set to 1
-                    if msg.topic == "oekofen/hk1/L_pump":
-                        if(self.oekofen == 0):
-                            self.umwaelzpumpe = 1
-                        elif payload == "1" or payload == 1:
-                            self.umwaelzpumpe = 1
-                        else:
-                            self.umwaelzpumpe = 0
                 except Exception as e:
                     logger.warning("Not a JSON string")
+        if msg.topic == self.mqtttopics["Aussentemperatur"]:
+            logger.info("AT: " + payload)
+        if msg.topic == self.mqtttopics["Umwaelzpumpe"]:
+            if(self.oekofen == 0):
+                self.umwaelzpumpe = 1
+            elif payload == "1" or payload == 1:
+                self.umwaelzpumpe = 1
+            else:
+                self.umwaelzpumpe = 0
+            logger.info("Pumpe: " + str(self.umwaelzpumpe))
 
     def udpRx(self):
          self.udpRxTstop = threading.Event()
@@ -167,30 +167,6 @@ class steuerung(Resource):
                                  logger.debug("tempOekoAussen not valid or so")
                  except Exception as e:
                      logger.warning(str(e))
-
-    def get_oekofen_pumpe(self):
-        """ Get status from Oekofen heating pump
-        Retries, if no response
-
-        """
-        if(self.oekofen == 0):
-            # Do not get state of heating system, just return true to simulate a running heating pump
-            logger.debug("Not taking Oekofen state into account")
-            ret = True
-        else:
-            ret = -1
-            while(ret == -1):
-                try:
-                    json_string = '{"command" : "getUmwaelzpumpe"}'
-                    ret = remote.udpRemote(json_string, addr=server, port=datacenterport)["answer"]
-                except:
-                    ret = -1
-                    time.sleep(1)
-            if(ret in ["true", "True", "TRUE"]):
-                ret = True
-            else:
-                ret = False
-        return(ret)
 
     def parseCmd(self, data):
         data = data.decode()
@@ -828,8 +804,16 @@ class steuerung(Resource):
         logger.info("Loading " + configfile)
         with open(configfile) as f:
             config = json.load(f)
-        #logger.info(config)
-
+        try:
+            self.mqtttopics["Aussentemperatur"] = config['General']['Sensors']['Aussentemperatur']['Topic']
+        except:
+            # No Aussentemperaturtopic found
+            pass
+        try:
+            self.mqtttopics["Umwaelzpumpe"] = config['General']['Sensors']['Umwaelzpumpe']['Topic']
+        except:
+            # No Umwaelzpumpentopic found
+            pass
         self.baseport = int(config['General']['Port'])
         self.hysterese = float(config['General']['Hysterese'])
         self.name = config['General']['Name']
@@ -1066,7 +1050,6 @@ class steuerung(Resource):
         '''
         logger.debug("Running set_status")
         # Schauen, ob die Umwaelzpumpe läuft
-        #if(self.get_oekofen_pumpe()):
         if(self.umwaelzpumpe == 1):
             logger.debug("Umwaelzpumpe an")
             for client in self.clients:
