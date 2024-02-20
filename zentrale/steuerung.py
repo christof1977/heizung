@@ -111,25 +111,32 @@ class steuerung(Resource):
         # Iterate self.sensorik and see, if the received topic is in there:
         for sensor in self.sensorik:
             if msg.topic in self.sensorik.get(sensor).values(): # topic is stored in values of self.sensorik[sensor]
+                #if True:
                 try:
                     payload = json.loads(payload)
                     # See, if the MQTT payload is a json string, then iterate through keys and find key ["Temperature"]
                     # payload.keys contains different keys, and only one contains a dict with a key "Temperature".
                     # If this one isn't found, the code ends up in the except block, nothing is done.
                     # As soon as the key "Temperature" is found, the previous value is stored and the
-                    #new value and time stamp are written to the storage
+                    # new value and time stamp are written to the storage
                     for key in payload.keys():
-                        logger.info(key)
-                        logger.info(self.clients[sensor])
+                        logger.info("Key: " + key)
+                        logger.info("Payload: " + str(payload))
+                        #logger.info("self.clients[sensor]: " + str(self.clients))
+                        #logger.info(self.clients[sensor])
+                        logger.info("Sensor: " + sensor)
                         try:
-                            logger.info(payload[key]["Temperature"])
-                            logger.info(sensor)
+                            logger.info("Temperatur: " + payload[key]["Temperature"])
+                            #logger.info(sensor)
                             #self.clients[sensor]["isTemp"] = payload[key]["Temperature"]
+                            logger.info("Gespeichert:")
+                            logger.info(self.sensorik)
                             self.sensorik[sensor]["PreviousValue"] = self.sensorik[sensor]["Value"]
                             self.sensorik[sensor]["Value"] = payload[key]["Temperature"]
                             self.sensorik[sensor]["Time"] = payload["Time"]
                         except Exception as e:
                             # Do nothing, if "Temperature" is not a key
+                            logger.warning(e)
                             pass
                 except AttributeError:
                     # This topics contains the state of the heating pump (on/off) and is written to self.umwaelzpumpe.
@@ -143,6 +150,7 @@ class steuerung(Resource):
                             self.umwaelzpumpe = 0
                 except Exception as e:
                     logger.warning("Not a JSON string")
+                    logger.warning(e)
 
 
     def udpRx(self):
