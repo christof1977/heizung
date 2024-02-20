@@ -85,6 +85,8 @@
       "Relais": [
         22
       ],
+      "RTLsens":"kReturnFlow",
+      "RTLtemp":"26",
       "Sensors": {
         "kReturnFlow": {
           "Metric": "Temperature",

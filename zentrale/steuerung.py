@@ -771,8 +771,7 @@ class steuerung(Resource):
         If yes, switch from automatic mode to shorttimer moder
         '''
         prctl.set_name("Shorttimer")
-        if True:
-        #try:
+        try:
             timeout = 1
             while(not self.t_stop.is_set()):
                 for client in self.clients:
@@ -783,8 +782,8 @@ class steuerung(Resource):
                         self.reset_room_shorttimer(client)
                 #logger.info("Running short_timer")
                 self.t_stop.wait(timeout)
-        #except Exception as e:
-        #    logger.error(e)
+        except Exception as e:
+            logger.error(e)
 
     def timer_operation(self):
         '''
@@ -889,15 +888,6 @@ class steuerung(Resource):
             # Kein Zähler konfiguriert
             pass
 
-        #relais_tmp = self.config['BASE']['Relais'].split(";")
-        #relais = []
-        #for i in range(len(relais_tmp)):
-        #        tmp = (relais_tmp[i].split(","))
-        #        tmp1 = []
-        #        for j in range(len(tmp)):
-        #            tmp1.append(int(tmp[j]))
-        #        relais.append(tmp1)
-        #i = 0
         clients = config['Clients']
         self.clients = {} # Dict with all room information
         for client in clients:
@@ -913,6 +903,12 @@ class steuerung(Resource):
             self.clients[client]["ShorttimerMode"] = "off"
             self.clients[client]["Timer"] = "off"
             self.clients[client]["Name"] = clients[client]["Name"]
+            try:
+                self.clients[client]["RTLsens"] = clients[client]["RTLsens"]
+                self.clients[client]["RTLtemp"] = float(clients[client]["RTLtemp"])
+            except:
+                # No RTL sensor found
+                pass
         logger.info(self.clients)
         self.polarity = config['General']['Polarity']
         self.unusedRel = config['General']['UnusedRelais']
@@ -1093,7 +1089,16 @@ class steuerung(Resource):
                     elif float(self.clients[client]["setTemp"]) + self.hysterese/2 <= float(self.clients[client]["isTemp"]):
                         self.clients[client]["Status"] = "off"
                         logger.debug(client + " running in auto mode, setting state to " + self.clients[client]["Status"])
+                    # Wenn Heizkreis mit Rücklauftemperaturabsenkung ausgestattet ist:
+                if("RTLsens" in self.clients[client]):
+                    isTemp = self.sensorik[self.clients[client]["RTLsens"]]["Value"]
+                    maxTemp = self.clients[client]["RTLtemp"]
+                    if float(maxTemp) - self.hysterese/2 >= float(isTemp):
+                        self.clients[client]["Status"] = "on"
+                    elif float(maxTemp) + self.hysterese/2 <= float(isTemp):
+                        self.clients[client]["Status"] = "off"
                 # Im manuellen Modus, Zustand on:
+                # TODO: das hier muss oben rein, damit die Temperaturregelung aktiv bleibt
                 elif(self.clients[client]["Mode"] == "on"):
                     self.clients[client]["Status"] = "on"
                     logger.debug(client + " running in manual mode, setting state to " + self.clients[client]["Status"])
