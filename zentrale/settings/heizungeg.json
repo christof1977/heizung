@@ -8,7 +8,21 @@
     "Pump": -1,
     "Oekofen": 1,
     "Timerfile": "timer_heizungeg.json",
-    "ModeReset": "off"
+    "ModeReset": "off",
+    "Sensors": {
+        "Umwaelzpumpe": {
+          "Metric": "State",
+          "Unit": "",
+          "System": "MQTT",
+          "Topic": "oekofen/hk1/L_pump"
+        },
+        "Aussentemperatur": {
+          "Metric": "Temperature",
+          "Unit": "C",
+          "System": "MQTT",
+          "Topic": "oekofen/system/L_ambient"
+        }
+    }
   },
   "MQTT": {
     "host": "mqtt.plattentoni.de",
