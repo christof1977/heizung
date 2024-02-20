@@ -51,7 +51,7 @@ class steuerung(Resource):
         self.short_timer()
         self.timer_operation()
 
-        self.udpRx()
+        #self.udpRx()
 
         # MQTT Topics to subscribe to (receiving vales)
         for sensor in self.sensorik:
@@ -124,18 +124,30 @@ class steuerung(Resource):
                         except Exception as e:
                             # Do nothing, if "Temperature" is not a key
                             pass
+                except AttributeError:
+                    if msg.topic == self.mqtttopics["Aussentemperatur"]:
+                        try:
+                            self.sensorik["Aussentemperatur"]["PreviousValue"] = self.sensorik[sensor]["Value"]
+                            self.sensorik["Aussentemperatur"]["Value"] = payload
+                            self.sensorik["Aussentemperatur"]["Time"] = str(datetime.datetime.now().replace(microsecond=0).isoformat())
+                        except:
+                            pass
+                        try:
+                            self.mix.ff_temp_target = float(payload)
+                        except:
+                            logger.debug("tempOekoAussen not valid or so")
+                    if msg.topic == self.mqtttopics["Umwaelzpumpe"]:
+                        self.sensorik["Umwaelzpumpe"]["PreviousValue"] = self.sensorik[sensor]["Value"]
+                        self.sensorik["Umwaelzpumpe"]["Value"] = payload
+                        self.sensorik["Umwaelzpumpe"]["Time"] = str(datetime.datetime.now().replace(microsecond=0).isoformat())
+                        if(self.oekofen == 0):
+                            self.umwaelzpumpe = 1
+                        elif payload == "1" or payload == 1:
+                            self.umwaelzpumpe = 1
+                        else:
+                            self.umwaelzpumpe = 0
                 except Exception as e:
                     logger.warning("Not a JSON string")
-        if msg.topic == self.mqtttopics["Aussentemperatur"]:
-            logger.info("AT: " + payload)
-        if msg.topic == self.mqtttopics["Umwaelzpumpe"]:
-            if(self.oekofen == 0):
-                self.umwaelzpumpe = 1
-            elif payload == "1" or payload == 1:
-                self.umwaelzpumpe = 1
-            else:
-                self.umwaelzpumpe = 0
-            logger.info("Pumpe: " + str(self.umwaelzpumpe))
 
     def udpRx(self):
          self.udpRxTstop = threading.Event()
@@ -804,16 +816,6 @@ class steuerung(Resource):
         logger.info("Loading " + configfile)
         with open(configfile) as f:
             config = json.load(f)
-        try:
-            self.mqtttopics["Aussentemperatur"] = config['General']['Sensors']['Aussentemperatur']['Topic']
-        except:
-            # No Aussentemperaturtopic found
-            pass
-        try:
-            self.mqtttopics["Umwaelzpumpe"] = config['General']['Sensors']['Umwaelzpumpe']['Topic']
-        except:
-            # No Umwaelzpumpentopic found
-            pass
         self.baseport = int(config['General']['Port'])
         self.hysterese = float(config['General']['Hysterese'])
         self.name = config['General']['Name']
@@ -844,6 +846,32 @@ class steuerung(Resource):
                         self.sensorik[sensor]["Publish"] = False
                     else:
                         self.sensorik[sensor]["Publish"] = True
+        try:
+            self.mqtttopics["Aussentemperatur"] = config['General']['Sensors']['Aussentemperatur']['Topic']
+            self.sensorik["Aussentemperatur"] = {}
+            self.sensorik["Aussentemperatur"]["Type"] = config['General']['Sensors']['Aussentemperatur']['Metric']
+            self.sensorik["Aussentemperatur"]["System"] = config['General']['Sensors']['Aussentemperatur']['System']
+            self.sensorik["Aussentemperatur"]["ID"] = config['General']['Sensors']['Aussentemperatur']['Topic']
+            self.sensorik["Aussentemperatur"]["Time"] = ""
+            self.sensorik["Aussentemperatur"]["Value"] = -150
+            self.sensorik["Aussentemperatur"]["PreviousValue"] = -150
+            self.sensorik["Aussentemperatur"]["Publish"] = False
+        except:
+            # No Aussentemperaturtopic found
+            pass
+        try:
+            self.mqtttopics["Umwaelzpumpe"] = config['General']['Sensors']['Umwaelzpumpe']['Topic']
+            self.sensorik["Umwaelzpumpe"] = {}
+            self.sensorik["Umwaelzpumpe"]["Type"] = config['General']['Sensors']['Umwaelzpumpe']['Metric']
+            self.sensorik["Umwaelzpumpe"]["System"] = config['General']['Sensors']['Umwaelzpumpe']['System']
+            self.sensorik["Umwaelzpumpe"]["ID"] = config['General']['Sensors']['Umwaelzpumpe']['Topic']
+            self.sensorik["Umwaelzpumpe"]["Time"] = ""
+            self.sensorik["Umwaelzpumpe"]["Value"] = -150
+            self.sensorik["Umwaelzpumpe"]["PreviousValue"] = -150
+            self.sensorik["Umwaelzpumpe"]["Publish"] = False
+        except:
+            # No Umwaelzpumpentopic found
+            pass
         self.pumpe = int(config['General']['Pump'])
         self.oekofen = int(config['General']['Oekofen'])
         self.umwaelzpumpe = 1
