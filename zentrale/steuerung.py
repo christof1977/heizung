@@ -1090,13 +1090,13 @@ class steuerung(Resource):
                         self.clients[client]["Status"] = "off"
                         logger.debug(client + " running in auto mode, setting state to " + self.clients[client]["Status"])
                     # Wenn Heizkreis mit Rücklauftemperaturabsenkung ausgestattet ist:
-                if("RTLsens" in self.clients[client]):
-                    isTemp = self.sensorik[self.clients[client]["RTLsens"]]["Value"]
-                    maxTemp = self.clients[client]["RTLtemp"]
-                    if float(maxTemp) - self.hysterese/2 >= float(isTemp):
-                        self.clients[client]["Status"] = "on"
-                    elif float(maxTemp) + self.hysterese/2 <= float(isTemp):
-                        self.clients[client]["Status"] = "off"
+                    if("RTLsens" in self.clients[client]):
+                        isTemp = self.sensorik[self.clients[client]["RTLsens"]]["Value"]
+                        maxTemp = self.clients[client]["RTLtemp"]
+                        if float(maxTemp) - self.hysterese/2 >= float(isTemp):
+                            self.clients[client]["Status"] = "on"
+                        elif float(maxTemp) + self.hysterese/2 <= float(isTemp):
+                            self.clients[client]["Status"] = "off"
                 # Im manuellen Modus, Zustand on:
                 # TODO: das hier muss oben rein, damit die Temperaturregelung aktiv bleibt
                 elif(self.clients[client]["Mode"] == "on"):
