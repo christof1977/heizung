@@ -25,6 +25,7 @@
       ],
       "Sensors": {
         "WzSens": {
+          "Room": "WZ",
           "Metric": "Temperature",
           "Unit": "C",
           "System": "MQTT",
@@ -48,6 +49,7 @@
       ],
       "Sensors": {
         "AzSens": {
+          "Room": "AZ",
           "Metric": "Temperature",
           "Unit": "C",
           "System": "MQTT",
@@ -65,7 +67,7 @@
       }
     },
     "K": {
-      "Name": "Kueche",
+      "Name": "Küche",
       "Relais": [
         22
       ],
