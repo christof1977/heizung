@@ -25,7 +25,6 @@ from flask import request
 from flask_restful import Api
 from flask_restful import Resource, abort
 
-udp_port = 5005
 server = "dose"
 datacenterport = 6663
 logger = logging.getLogger('Heizung')
@@ -51,7 +50,6 @@ class steuerung(Resource):
         self.short_timer()
         self.timer_operation()
 
-        self.udpServer()
         self.udpRx()
 
         # MQTT Topics to subscribe to (receiving vales)
@@ -169,29 +167,6 @@ class steuerung(Resource):
                                  logger.debug("tempOekoAussen not valid or so")
                  except Exception as e:
                      logger.warning(str(e))
-
-    def udpServer(self):
-        logger.info("Starting UDP-Server on port " + str(udp_port))
-        self.udpSock = socket.socket( socket.AF_INET,  socket.SOCK_DGRAM )
-        self.udpSock.bind( (self.basehost,udp_port) )
-
-        udpT = threading.Thread(target=self._udpServer)
-        udpT.setDaemon(True)
-        udpT.start()
-
-    def _udpServer(self):
-        prctl.set_name("udpServer")
-        while(not self.t_stop.is_set()):
-            try:
-                data, addr = self.udpSock.recvfrom( 1024 )# Puffer-Groesse ist 1024 Bytes.
-                ret = self.parseCmd(data) # Abfrage der Fernbedienung (UDP-Server), der Rest passiert per Interrupt/Event
-                self.udpSock.sendto(str(ret).encode('utf-8'), addr)
-            except Exception as e:
-                try:
-                    self.udpSock.sendto(str('{"answer":"error"}').encode('utf-8'), addr)
-                    logger.warning("Uiui, beim UDP senden/empfangen hat's kracht!" + str(e))
-                except Exception as o:
-                    logger.warning("Uiui, beim UDP senden/empfangen hat's richtig kracht!" + str(o))
 
     def get_oekofen_pumpe(self):
         """ Get status from Oekofen heating pump
