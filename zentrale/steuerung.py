@@ -897,6 +897,7 @@ class steuerung(Resource):
             self.clients[client]["Mode"] = "auto"
             self.clients[client]["setMode"] = "auto"
             self.clients[client]["setWindow"] = "auto"
+            self.clients[client]["windowMode"] = "auto"
             self.clients[client]["setTemp"] = 21
             self.clients[client]["isTemp"] = 18
             self.clients[client]["Shorttimer"] = 0
