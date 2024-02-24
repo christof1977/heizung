@@ -4,7 +4,7 @@
     "Port": 5012,
     "UnusedRelais": [25],
     "Hysterese": 0.4,
-    "Polarity": "inverse",
+    "Polarity": "invers",
     "Pump": -1,
     "Oekofen": 1,
     "Timerfile": "timer_heizungeg.json",
@@ -74,7 +74,7 @@
     "BadEG": {
       "Name": "BadEG",
       "Relais": [
-        24
+        22
       ],
       "Sensors": {
 
@@ -83,7 +83,7 @@
     "K": {
       "Name": "Küche",
       "Relais": [
-        22
+        24
       ],
       "RTLsens":"kReturnFlow",
       "RTLtemp":"26",
