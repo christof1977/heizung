@@ -384,7 +384,8 @@ class steuerung(Resource):
         """
         dt = datetime.datetime.now()
         dts = "{:02d}:{:02d}:{:02d}".format(dt.hour, dt.minute, dt.second)
-        return(json.dumps({"name":self.hostname,"answer":"Freilich", "time" : dts}))
+        uptime = str(datetime.timedelta(seconds = time.clock_gettime(time.CLOCK_BOOTTIME)))
+        return(json.dumps({"name":self.hostname,"answer":"Freilich", "time" : dts, "uptime" : uptime}))
 
     def get_status(self):
         """ function to determine status of system
