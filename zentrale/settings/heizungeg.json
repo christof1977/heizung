@@ -100,11 +100,11 @@
     }
   },
   "Counter": {
-    "VerbrauchHeizungEG": {
+    "HeizungEG": {
       "Metric": "Heat",
       "Address": 0
     },
-    "VerbrauchWW": {
+    "Warmwasser": {
       "Metric": "Heat",
       "Address": 1
     }
