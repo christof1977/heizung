@@ -1094,9 +1094,9 @@ class steuerung(Resource):
                     if("RTLsens" in self.clients[client]):
                         isTemp = self.sensorik[self.clients[client]["RTLsens"]]["Value"]
                         maxTemp = self.clients[client]["RTLtemp"]
-                        if float(maxTemp) - self.hysterese/2 >= float(isTemp):
+                        if float(maxTemp) - self.hysterese >= float(isTemp):
                             self.clients[client]["Status"] = "on"
-                        elif float(maxTemp) + self.hysterese/2 <= float(isTemp):
+                        elif float(maxTemp) + self.hysterese <= float(isTemp):
                             self.clients[client]["Status"] = "off"
                 # Im manuellen Modus, Zustand on:
                 # TODO: das hier muss oben rein, damit die Temperaturregelung aktiv bleibt
