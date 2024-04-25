@@ -29,7 +29,8 @@ class Garage():
         logger.info("Setting Garagenmelder: %s", str(self.garagenmelder))
         GPIO.add_event_detect(self.garagenmelder, GPIO.BOTH, callback = self.garagenmeldung, bouncetime = 250)
 
-        self.mqttclient = mqtt.Client("Garage")
+        #self.mqttclient = mqtt.Client("Garage")
+        self.mqttclient = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, "Garage")
         self.mqttclient.username_pw_set(self.mqttuser, self.mqttpass)
         self.mqttclient.on_message = self.on_mqtt_message
         self.mqttclient.on_connect = self.on_mqtt_connect
@@ -150,7 +151,8 @@ class Garage():
 
 
 if __name__ == "__main__":
-    garage = Garage(kontakt=10, melder=24, mqtthost="mqtt.plattentoni.de", mqttuser="raspi", mqttpass="parsi")
+    garage = Garage(kontakt=10, melder=17, mqtthost="mqtt.plattentoni.de", mqttuser="raspi", mqttpass="parsi")
     while True:
         time.sleep(1)
-        garage.garagenmeldung(24)
+        #garage.garagenmeldung(24)
+        garage.garagenmeldung(17)

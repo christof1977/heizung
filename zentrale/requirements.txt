@@ -1,4 +1,6 @@
-RPi.GPIO
+# System requirements:
+# sudo apt remove rpi.gpio-common python3-rpi.gpio
+# sudo apt install  python3-lgpio python3-rpi-lgpio
 smbus
 smbus2
 pyserial

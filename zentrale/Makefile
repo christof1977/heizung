@@ -25,7 +25,7 @@ run: env
 env: $(ENV_BIN)/activate install
 #env:
 $(ENV_BIN)/activate: requirements.txt
-	test -d $(ENV) || $(PYTHON) -m $(VENV) $(ENV)
+	test -d $(ENV) || $(PYTHON) -m $(VENV) --system-site-packages $(ENV)
 	$(ENV_PYTHON) -m ensurepip --upgrade
 	$(ENV_PYTHON) -m pip install -qq --upgrade pip
 	$(ENV_PYTHON) -m pip install -qq -r requirements.txt
