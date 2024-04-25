@@ -151,8 +151,7 @@ class Garage():
 
 
 if __name__ == "__main__":
-    garage = Garage(kontakt=10, melder=17, mqtthost="mqtt.plattentoni.de", mqttuser="raspi", mqttpass="parsi")
+    garage = Garage(kontakt=10, melder=24, mqtthost="mqtt.plattentoni.de", mqttuser="raspi", mqttpass="parsi")
     while True:
         time.sleep(1)
-        #garage.garagenmeldung(24)
-        garage.garagenmeldung(17)
+        garage.garagenmeldung(24)
