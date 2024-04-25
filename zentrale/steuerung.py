@@ -63,8 +63,7 @@ class steuerung(Resource):
                 logger.warning("Config error, key 'System' missing.")
         logger.info("MQTT Topics: " + str(self.mqtttopics))
 
-        self.mqttclient = mqtt.Client(self.hostname+str(datetime.datetime.now().timestamp()))
-        #self.mqttclient = mqtt.Client(self.hostname)
+        self.mqttclient = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, self.hostname+str(datetime.datetime.now().timestamp()))
         self.mqttclient.username_pw_set(self.mqttuser, self.mqttpass)
         self.mqttclient.on_message = self.on_mqtt_message
         self.mqttclient.on_connect = self.on_mqtt_connect
