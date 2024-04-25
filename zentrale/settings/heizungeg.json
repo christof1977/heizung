@@ -2,19 +2,34 @@
   "General": {
     "Name": "EG",
     "Port": 5012,
-    "UnusedRelais": 25,
+    "UnusedRelais": [25],
     "Hysterese": 0.4,
-    "Polarity": "inverse",
+    "Polarity": "invers",
     "Pump": -1,
     "Oekofen": 1,
     "Timerfile": "timer_heizungeg.json",
-    "Mqtt": {
-      "host": "mqtt.plattentoni.de",
-      "user": "raspi",
-      "password": "parsi"
-    },
-    "Topic":"HeizungEG"
+    "ModeReset": "off",
+    "Sensors": {
+        "Umwaelzpumpe": {
+          "Metric": "State",
+          "Unit": "",
+          "System": "MQTT",
+          "Topic": "oekofen/hk1/L_pump"
+        },
+        "Aussentemperatur": {
+          "Metric": "Temperature",
+          "Unit": "C",
+          "System": "MQTT",
+          "Topic": "oekofen/system/L_ambient"
+        }
+    }
   },
+  "MQTT": {
+    "host": "mqtt.plattentoni.de",
+    "user": "raspi",
+    "password": "parsi",
+    "Topic":"HeizungEG"
+    },
   "Clients": {
     "WZ": {
       "Name": "Wohnzimmer",
@@ -23,7 +38,8 @@
         10
       ],
       "Sensors": {
-        "Temp1": {
+        "WzSens": {
+          "Room": "WZ",
           "Metric": "Temperature",
           "Unit": "C",
           "System": "MQTT",
@@ -46,7 +62,8 @@
         23
       ],
       "Sensors": {
-        "Temp1": {
+        "AzSens": {
+          "Room": "AZ",
           "Metric": "Temperature",
           "Unit": "C",
           "System": "MQTT",
@@ -57,30 +74,44 @@
     "BadEG": {
       "Name": "BadEG",
       "Relais": [
-        24
-      ],
-      "Sensors": {
-
-      }
-    },
-    "Kueche": {
-      "Name": "Kueche",
-      "Relais": [
         22
       ],
       "Sensors": {
 
       }
+    },
+    "K": {
+      "Name": "Küche",
+      "Relais": [
+        24
+      ],
+      "RTLsens":"kReturnFlow",
+      "RTLtemp":"26",
+      "Sensors": {
+        "kReturnFlow": {
+          "Metric": "Temperature",
+          "Unit": "C",
+          "System": "1W",
+          "Type": "DS18B20",
+          "Topic": "28-041700aed0ff"
+        }
+
+      }
     }
   },
   "Counter": {
-    "VerbrauchHeizungEG": {
+    "HeizungEG": {
       "Metric": "Heat",
       "Address": 0
     },
-    "VerbrauchWW": {
+    "Warmwasser": {
       "Metric": "Heat",
       "Address": 1
+    }
+    ,
+    "Gartenwasser": {
+      "Metric": "Volume",
+      "Address": 2
     }
   }
 }

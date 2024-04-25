@@ -5,7 +5,6 @@ import RPi.GPIO as GPIO
 import sys
 import time
 import datetime
-import configparser
 import json
 from timer import timer
 from mixer import mixer
@@ -26,9 +25,6 @@ from flask import request
 from flask_restful import Api
 from flask_restful import Resource, abort
 
-udp_port = 5005
-server = "dose"
-datacenterport = 6663
 logger = logging.getLogger('Heizung')
 #logger.setLevel(logging.DEBUG)
 logger.setLevel(logging.INFO)
@@ -36,6 +32,9 @@ logger.setLevel(logging.INFO)
 class steuerung(Resource):
     def __init__(self):
         self.t_stop = threading.Event()
+        # Create empty dict for mqtttopics
+        self.mqtttopics = {}
+
         self.read_config()
         
         self.set_hw()
@@ -52,11 +51,9 @@ class steuerung(Resource):
         self.short_timer()
         self.timer_operation()
 
-        self.udpServer()
-        self.udpRx()
+        #self.udpRx()
 
         # MQTT Topics to subscribe to (receiving vales)
-        self.mqtttopics = {}
         for sensor in self.sensorik:
             logger.info("Sensor " + sensor + ": " + str(self.sensorik[sensor]))
             try:
@@ -64,13 +61,12 @@ class steuerung(Resource):
                     self.mqtttopics[sensor] = self.sensorik[sensor]["ID"]
             except:
                 logger.warning("Config error, key 'System' missing.")
+        logger.info("MQTT Topics: " + str(self.mqtttopics))
 
-        #self.mqttclient = mqtt.Client(self.hostname+str(datetime.datetime.now().timestamp()))
-        self.mqttclient = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, self.hostname)
+        self.mqttclient = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, self.hostname+str(datetime.datetime.now().timestamp()))
         self.mqttclient.username_pw_set(self.mqttuser, self.mqttpass)
         self.mqttclient.on_message = self.on_mqtt_message
         self.mqttclient.on_connect = self.on_mqtt_connect
-        logger.info(self.sensorik)
         logger.info("Setting Last Will and Testament")
         self.mqttclient.will_set(self.name + "/" + self.hostname + "/LWT", "Offline", retain=True)
         self.mqttclient.connect(self.mqtthost, 1883, 60)
@@ -112,13 +108,15 @@ class steuerung(Resource):
         for sensor in self.sensorik:
             if msg.topic in self.sensorik.get(sensor).values(): # topic is stored in values of self.sensorik[sensor]
                 try:
-                    payload = json.loads(payload) # See, if the MQTT payload is a json string, then iterate through keys and find key ["Temperature"]
-                    # payload.keys contains different keys, and only one contains a dict with a key "Temperature". If this one isn't found, the code ends up
-                    # in the except block, nothing is done.
-                    # As soon as the key "Temperature" is found, the previous value is stored and the new value and time stamp are written to the storage
+                    payload = json.loads(payload)
+                    # See, if the MQTT payload is a json string, then iterate through keys and find key ["Temperature"]
+                    # payload.keys contains different keys, and only one contains a dict with a key "Temperature".
+                    # If this one isn't found, the code ends up in the except block, nothing is done.
+                    # As soon as the key "Temperature" is found, the previous value is stored and the
+                    # new value and time stamp are written to the storage
                     for key in payload.keys():
                         try:
-                            self.clients[sensor]["isTemp"] = payload[key]["Temperature"]
+                            self.clients[self.sensorik[sensor]["Room"]]["isTemp"] = payload[key]["Temperature"]
                             self.sensorik[sensor]["PreviousValue"] = self.sensorik[sensor]["Value"]
                             self.sensorik[sensor]["Value"] = payload[key]["Temperature"]
                             self.sensorik[sensor]["Time"] = payload["Time"]
@@ -126,9 +124,21 @@ class steuerung(Resource):
                             # Do nothing, if "Temperature" is not a key
                             pass
                 except AttributeError:
-                    # This topics contains the state of the heating pump (on/off) and is written to self.umwaelzpumpe.
-                    # If the configuration disables the dependency of the Oekofen heating, the value is set to 1
-                    if msg.topic == "oekofen/hk1/L_pump":
+                    if msg.topic == self.mqtttopics["Aussentemperatur"]:
+                        try:
+                            self.sensorik["Aussentemperatur"]["PreviousValue"] = self.sensorik[sensor]["Value"]
+                            self.sensorik["Aussentemperatur"]["Value"] = payload
+                            self.sensorik["Aussentemperatur"]["Time"] = str(datetime.datetime.now().replace(microsecond=0).isoformat())
+                        except:
+                            pass
+                        try:
+                            self.mix.ff_temp_target = float(payload)
+                        except:
+                            logger.debug("tempOekoAussen not valid or so")
+                    if msg.topic == self.mqtttopics["Umwaelzpumpe"]:
+                        self.sensorik["Umwaelzpumpe"]["PreviousValue"] = self.sensorik[sensor]["Value"]
+                        self.sensorik["Umwaelzpumpe"]["Value"] = payload
+                        self.sensorik["Umwaelzpumpe"]["Time"] = str(datetime.datetime.now().replace(microsecond=0).isoformat())
                         if(self.oekofen == 0):
                             self.umwaelzpumpe = 1
                         elif payload == "1" or payload == 1:
@@ -137,7 +147,6 @@ class steuerung(Resource):
                             self.umwaelzpumpe = 0
                 except Exception as e:
                     logger.warning("Not a JSON string")
-
 
     def udpRx(self):
          self.udpRxTstop = threading.Event()
@@ -169,53 +178,6 @@ class steuerung(Resource):
                                  logger.debug("tempOekoAussen not valid or so")
                  except Exception as e:
                      logger.warning(str(e))
-
-    def udpServer(self):
-        logger.info("Starting UDP-Server on port " + str(udp_port))
-        self.udpSock = socket.socket( socket.AF_INET,  socket.SOCK_DGRAM )
-        self.udpSock.bind( (self.basehost,udp_port) )
-
-        udpT = threading.Thread(target=self._udpServer)
-        udpT.setDaemon(True)
-        udpT.start()
-
-    def _udpServer(self):
-        prctl.set_name("udpServer")
-        while(not self.t_stop.is_set()):
-            try:
-                data, addr = self.udpSock.recvfrom( 1024 )# Puffer-Groesse ist 1024 Bytes.
-                ret = self.parseCmd(data) # Abfrage der Fernbedienung (UDP-Server), der Rest passiert per Interrupt/Event
-                self.udpSock.sendto(str(ret).encode('utf-8'), addr)
-            except Exception as e:
-                try:
-                    self.udpSock.sendto(str('{"answer":"error"}').encode('utf-8'), addr)
-                    logger.warning("Uiui, beim UDP senden/empfangen hat's kracht!" + str(e))
-                except Exception as o:
-                    logger.warning("Uiui, beim UDP senden/empfangen hat's richtig kracht!" + str(o))
-
-    def get_oekofen_pumpe(self):
-        """ Get status from Oekofen heating pump
-        Retries, if no response
-
-        """
-        if(self.oekofen == 0):
-            # Do not get state of heating system, just return true to simulate a running heating pump
-            logger.debug("Not taking Oekofen state into account")
-            ret = True
-        else:
-            ret = -1
-            while(ret == -1):
-                try:
-                    json_string = '{"command" : "getUmwaelzpumpe"}'
-                    ret = remote.udpRemote(json_string, addr=server, port=datacenterport)["answer"]
-                except:
-                    ret = -1
-                    time.sleep(1)
-            if(ret in ["true", "True", "TRUE"]):
-                ret = True
-            else:
-                ret = False
-        return(ret)
 
     def parseCmd(self, data):
         data = data.decode()
@@ -421,7 +383,8 @@ class steuerung(Resource):
         """
         dt = datetime.datetime.now()
         dts = "{:02d}:{:02d}:{:02d}".format(dt.hour, dt.minute, dt.second)
-        return(json.dumps({"name":self.hostname,"answer":"Freilich", "time" : dts}))
+        uptime = str(datetime.timedelta(seconds = time.clock_gettime(time.CLOCK_BOOTTIME)))
+        return(json.dumps({"name":self.hostname,"answer":"Freilich", "time" : dts, "uptime" : uptime}))
 
     def get_status(self):
         """ function to determine status of system
@@ -808,8 +771,7 @@ class steuerung(Resource):
         If yes, switch from automatic mode to shorttimer moder
         '''
         prctl.set_name("Shorttimer")
-        if True:
-        #try:
+        try:
             timeout = 1
             while(not self.t_stop.is_set()):
                 for client in self.clients:
@@ -820,8 +782,8 @@ class steuerung(Resource):
                         self.reset_room_shorttimer(client)
                 #logger.info("Running short_timer")
                 self.t_stop.wait(timeout)
-        #except Exception as e:
-        #    logger.error(e)
+        except Exception as e:
+            logger.error(e)
 
     def timer_operation(self):
         '''
@@ -848,74 +810,109 @@ class steuerung(Resource):
         realpath = os.path.realpath(__file__)
         basepath = os.path.split(realpath)[0]
         setpath = os.path.join(basepath, 'settings')
-        inifile = os.path.join(setpath, self.hostname + '.ini')
+        configfile = os.path.join(setpath, self.hostname + '.json')
 
-        self.config = configparser.ConfigParser()
-        self.config.optionxform = str
-        logger.info("Loading " + inifile)
-        self.config.read(inifile)
-
-        self.baseport = int(self.config['BASE']['Port'])
-        self.hysterese = float(self.config['BASE']['Hysterese'])
-        clients = self.config['BASE']['Clients'].split(";")
-        names = self.config['BASE']['Names'].split(";")
-        self.name = self.config['BASE']['Name']
+        logger.info("Loading " + configfile)
+        with open(configfile) as f:
+            config = json.load(f)
+        self.baseport = int(config['General']['Port'])
+        self.hysterese = float(config['General']['Hysterese'])
+        self.name = config['General']['Name']
         self.sensorik = {}
-        sensorik = dict(self.config.items('SENSORS'))
-        for sensor in sensorik:
-            tmp = sensorik[sensor].split(", ")
-            self.sensorik[sensor] = {}
-            self.sensorik[sensor]["Type"] = tmp[0]
-            self.sensorik[sensor]["System"] = tmp[1]
-            self.sensorik[sensor]["ID"] = tmp[2]
-            self.sensorik[sensor]["Time"] = ""
-            self.sensorik[sensor]["Value"] = -150
-            self.sensorik[sensor]["PreviousValue"] = -150
-            self.sensorik[sensor]["Topic"] = self.name + "/" + sensor + "/" + self.hostname 
-            if self.sensorik[sensor]["System"] == "MQTT":
-                self.sensorik[sensor]["Publish"] = False
-            else:
-                self.sensorik[sensor]["Publish"] = True
-        self.pumpe = int(self.config['BASE']['Pumpe'])
-        self.oekofen = int(self.config['BASE']['Oekofen'])
+        for c in config["Clients"]:
+            # Iterate over all clients in config dict and see, if there exists a sensor
+            sensordict = config["Clients"][c]["Sensors"]
+            if sensordict:
+                # Only do this, if there's at least one sensor
+                for sensor in sensordict:
+                    # There might be one then one sensor per client, therefor the loop
+                    # Get all sensor meta data and prepare a record in the dict
+                    self.sensorik[sensor] = {}
+                    self.sensorik[sensor]["Type"] = sensordict[sensor]["Metric"]
+                    self.sensorik[sensor]["System"] = sensordict[sensor]["System"]
+                    self.sensorik[sensor]["ID"] = sensordict[sensor]["Topic"]
+                    try:
+                        # See, if there's a key "Room", which is used to assign the sensor to regulate room temp
+                        self.sensorik[sensor]["Room"] = sensordict[sensor]["Room"]
+                    except:
+                        self.sensorik[sensor]["Room"] = ""
+                        pass
+                    self.sensorik[sensor]["Time"] = ""
+                    self.sensorik[sensor]["Value"] = -150
+                    self.sensorik[sensor]["PreviousValue"] = -150
+                    self.sensorik[sensor]["Topic"] = self.name + "/" + config["Clients"][c]["Name"] + "/" + sensor
+                    if self.sensorik[sensor]["System"] == "MQTT":
+                        self.sensorik[sensor]["Publish"] = False
+                    else:
+                        self.sensorik[sensor]["Publish"] = True
+        try:
+            self.mqtttopics["Aussentemperatur"] = config['General']['Sensors']['Aussentemperatur']['Topic']
+            self.sensorik["Aussentemperatur"] = {}
+            self.sensorik["Aussentemperatur"]["Type"] = config['General']['Sensors']['Aussentemperatur']['Metric']
+            self.sensorik["Aussentemperatur"]["System"] = config['General']['Sensors']['Aussentemperatur']['System']
+            self.sensorik["Aussentemperatur"]["ID"] = config['General']['Sensors']['Aussentemperatur']['Topic']
+            self.sensorik["Aussentemperatur"]["Time"] = ""
+            self.sensorik["Aussentemperatur"]["Value"] = -150
+            self.sensorik["Aussentemperatur"]["PreviousValue"] = -150
+            self.sensorik["Aussentemperatur"]["Publish"] = False
+        except:
+            # No Aussentemperaturtopic found
+            pass
+        try:
+            self.mqtttopics["Umwaelzpumpe"] = config['General']['Sensors']['Umwaelzpumpe']['Topic']
+            self.sensorik["Umwaelzpumpe"] = {}
+            self.sensorik["Umwaelzpumpe"]["Type"] = config['General']['Sensors']['Umwaelzpumpe']['Metric']
+            self.sensorik["Umwaelzpumpe"]["System"] = config['General']['Sensors']['Umwaelzpumpe']['System']
+            self.sensorik["Umwaelzpumpe"]["ID"] = config['General']['Sensors']['Umwaelzpumpe']['Topic']
+            self.sensorik["Umwaelzpumpe"]["Time"] = ""
+            self.sensorik["Umwaelzpumpe"]["Value"] = -150
+            self.sensorik["Umwaelzpumpe"]["PreviousValue"] = -150
+            self.sensorik["Umwaelzpumpe"]["Publish"] = False
+        except:
+            # No Umwaelzpumpentopic found
+            pass
+        self.pumpe = int(config['General']['Pump'])
+        self.oekofen = int(config['General']['Oekofen'])
         self.umwaelzpumpe = 1
         # See, if we have energy meters configured (M-Bus)
         try:
-            self.zaehler = self.config['BASE']['Zaehler'].split(";")
-            self.zaehleraddr = (self.config['BASE']['ZaehlerAddr'].split(";"))
-            self.zaehleraddr = [int(i) for i in self.zaehleraddr]
+            zaehler = config["Counter"]
+            self.zaehler = []
+            self.zaehleraddr = []
+            for z in zaehler:
+                self.zaehler.append(z)
+                self.zaehleraddr.append(zaehler[z]["Address"])
             logger.info(self.zaehler)
             logger.info(self.zaehleraddr)
         except:
             # Kein Zähler konfiguriert
             pass
 
-        relais_tmp = self.config['BASE']['Relais'].split(";")
-        relais = []
-        for i in range(len(relais_tmp)):
-                tmp = (relais_tmp[i].split(","))
-                tmp1 = []
-                for j in range(len(tmp)):
-                    tmp1.append(int(tmp[j]))
-                relais.append(tmp1)
-        i = 0
+        clients = config['Clients']
         self.clients = {} # Dict with all room information
         for client in clients:
             self.clients[client] = {}
-            self.clients[client]["Relais"] = relais[i]
+            self.clients[client]["Relais"] = clients[client]["Relais"]
             self.clients[client]["Status"] = "undef"
             self.clients[client]["Mode"] = "auto"
             self.clients[client]["setMode"] = "auto"
             self.clients[client]["setWindow"] = "auto"
+            self.clients[client]["windowMode"] = "auto"
             self.clients[client]["setTemp"] = 21
             self.clients[client]["isTemp"] = 18
             self.clients[client]["Shorttimer"] = 0
             self.clients[client]["ShorttimerMode"] = "off"
             self.clients[client]["Timer"] = "off"
-            self.clients[client]["Name"] = names[i]
-            i += 1
-        self.polarity = self.config['BASE']['Polarity']
-        self.unusedRel = self.config['BASE']['UnusedRel'].split(";")
+            self.clients[client]["Name"] = clients[client]["Name"]
+            try:
+                self.clients[client]["RTLsens"] = clients[client]["RTLsens"]
+                self.clients[client]["RTLtemp"] = float(clients[client]["RTLtemp"])
+            except:
+                # No RTL sensor found
+                pass
+        logger.info(self.clients)
+        self.polarity = config['General']['Polarity']
+        self.unusedRel = config['General']['UnusedRelais']
         if self.polarity == "invers":
             self.on = 0
             self.off = 1
@@ -924,21 +921,21 @@ class steuerung(Resource):
             self.off = 0
         self.logpath = os.path.join(basepath, 'log')
         self.timerpath = setpath
-        self.timerfile = self.config['BASE']['Timerfile']
+        self.timerfile = config['General']['Timerfile']
         if(self.timerfile == ""):
             self.timerfile = "timer_" + self.hostname + ".json"
         self.timerfile = os.path.join(setpath, self.timerfile)
         logger.info(self.timerfile)
         try:
-            self.garagenkontakt = int(self.config['GARAGE']['Kontakt'])
-            self.garagenmelder = int(self.config['GARAGE']['Melder'])
+            self.garagenkontakt = int(config['Garage']['Kontakt'])
+            self.garagenmelder = int(config['Garage']['Melder'])
         except:
             self.garagenkontakt = -1
             self.garagenmelder = -1
         try:
-            self.mixer_addr = hex(int(self.config['BASE']['Mischer'],16))
+            self.mixer_addr = hex(int(config['General']['Mischer'],16))
             logger.info(self.mixer_addr)
-            self.mixer_sens = self.config['BASE']['MischerSens']
+            self.mixer_sens = config['General']['MischerSens']
             self.sensorik["VorlaufSoll"] = {}
             self.sensorik["VorlaufSoll"]["Type"] = "Temperatur"
             self.sensorik["VorlaufSoll"]["System"] = "Intern"
@@ -950,12 +947,11 @@ class steuerung(Resource):
         except:
             self.mixer_addr = -1
             self.mixer_sens = -1
-        self.mqtthost = self.config['MQTT']['mqtthost']
-        self.mqttuser = self.config['MQTT']['mqttuser']
-        self.mqttpass = self.config['MQTT']['mqttpass']
+        self.mqtthost = config['MQTT']['host']
+        self.mqttuser = config['MQTT']['user']
+        self.mqttpass = config['MQTT']['password']
         self.system = {}
-        self.system["ModeReset"] = self.config['BASE']['ModeReset']
-
+        self.system["ModeReset"] = config['General']['ModeReset']
 
     def set_hw(self): 
         GPIO.setwarnings(False)
@@ -992,7 +988,8 @@ class steuerung(Resource):
                 val = self.mix.ff_temp_target
                 self.sensorik[sensor]["Value"] = val
                 self.sensorik[sensor]["Time"] = now
-            if self.sensorik[sensor]["Publish"] and self.sensorik[sensor]["PreviousValue"] != val:
+            #if self.sensorik[sensor]["Publish"] and self.sensorik[sensor]["PreviousValue"] != val:
+            if self.sensorik[sensor]["Publish"]:
                 self.sensorik[sensor]["PreviousValue"] = val
                 msg = {"Time":now,
                        self.sensorik[sensor]["System"]:
@@ -1001,9 +998,6 @@ class steuerung(Resource):
                              "TempUnit":"C"}
                 msg = json.dumps(msg)
                 self.mqttclient.publish(self.sensorik[sensor]["Topic"]+"/SENSOR", msg, retain=True)
-                               #hostname=self.mqtthost,
-                               #client_id=self.hostname,
-                               #auth = {"username":self.mqttuser, "password":self.mqttpass})
 
     def set_pumpe(self):
         '''
@@ -1081,7 +1075,6 @@ class steuerung(Resource):
         '''
         logger.debug("Running set_status")
         # Schauen, ob die Umwaelzpumpe läuft
-        #if(self.get_oekofen_pumpe()):
         if(self.umwaelzpumpe == 1):
             logger.debug("Umwaelzpumpe an")
             for client in self.clients:
@@ -1097,7 +1090,16 @@ class steuerung(Resource):
                     elif float(self.clients[client]["setTemp"]) + self.hysterese/2 <= float(self.clients[client]["isTemp"]):
                         self.clients[client]["Status"] = "off"
                         logger.debug(client + " running in auto mode, setting state to " + self.clients[client]["Status"])
+                    # Wenn Heizkreis mit Rücklauftemperaturabsenkung ausgestattet ist:
+                    if("RTLsens" in self.clients[client]):
+                        isTemp = self.sensorik[self.clients[client]["RTLsens"]]["Value"]
+                        maxTemp = self.clients[client]["RTLtemp"]
+                        if float(maxTemp) - self.hysterese/2 >= float(isTemp):
+                            self.clients[client]["Status"] = "on"
+                        elif float(maxTemp) + self.hysterese/2 <= float(isTemp):
+                            self.clients[client]["Status"] = "off"
                 # Im manuellen Modus, Zustand on:
+                # TODO: das hier muss oben rein, damit die Temperaturregelung aktiv bleibt
                 elif(self.clients[client]["Mode"] == "on"):
                     self.clients[client]["Status"] = "on"
                     logger.debug(client + " running in manual mode, setting state to " + self.clients[client]["Status"])
@@ -1120,7 +1122,10 @@ class steuerung(Resource):
                            "State":state}
                     msg = json.dumps(msg)
                     topic = self.name + "/" + self.clients[client]["Name"] + "/" + self.hostname + "/VALVE"
-                    self.mqttclient.publish(topic, msg, retain=True)
+                    try:
+                        self.mqttclient.publish(topic, msg, retain=True)
+                    except AttributeError:
+                        logger.warning("No mqttclient so far")
         # Wenn die Umwälzpumpe nicht läuft, alles ausschalten:
         else:
             logger.debug("Umwaelzpumpe aus")
