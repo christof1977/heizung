@@ -23,16 +23,12 @@
     * [get\_room\_temp](#steuerung.steuerung.get_room_temp)
     * [get\_room\_norm\_temp](#steuerung.steuerung.get_room_norm_temp)
     * [set\_room\_norm\_temp](#steuerung.steuerung.set_room_norm_temp)
-    * [get\_counter](#steuerung.steuerung.get_counter)
     * [get\_counter\_values](#steuerung.steuerung.get_counter_values)
     * [short\_timer](#steuerung.steuerung.short_timer)
     * [timer\_operation](#steuerung.steuerung.timer_operation)
     * [broadcast\_value](#steuerung.steuerung.broadcast_value)
     * [set\_pumpe](#steuerung.steuerung.set_pumpe)
     * [set\_status](#steuerung.steuerung.set_status)
-
-
-The documentation of the REST API can be found under ([/restapi](../restapi))
 
 <a id="steuerung"></a>
 
@@ -477,22 +473,6 @@ def set_room_norm_temp(room, temp)
 
 Sets normal set temperature of room
 Normal temperature is the value when in on-mode
-
-<a id="steuerung.steuerung.get_counter"></a>
-
-#### get\_counter
-
-```python
-def get_counter()
-```
-
-This functions returns the list of installed energy/volume counters as json string.
-
-```python
-{"Floor": "EG",
- "Counter": ["VerbrauchHeizungEG", "VerbrauchWW", "Gartenwasser"]}
-```
-
 
 <a id="steuerung.steuerung.get_counter_values"></a>
 

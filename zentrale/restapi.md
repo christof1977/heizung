@@ -132,11 +132,3 @@ Returns state of garage door, or N/A if no garage door control available, Not ye
 * action=auf: Opens door
 * action=zu: Closes door
 
-## /counter
-### method: GET
-Returns the list of available energy/volume counters
-([/counter](../counter))
-
-## /counter/COUNTER
-### method: GET
-Reads and returns the values of COUNTER
