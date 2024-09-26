@@ -6,7 +6,7 @@ from flask import request
 from flask_restful import Api
 from flask_restful import Resource, abort
 from steuerung import steuerung
-from flaskext.markdown import Markdown
+#from flaskext.markdown import Markdown
 #from marshmallow import Schema, fields
 
 from resources.status import Status, Alive, HelpJsonCommands, HelpApi, FfIsTemp, FfSetTemp, Mixer, Sensor
@@ -19,7 +19,7 @@ host_name = "0.0.0.0"
 port = 5000 
 app = Flask(__name__)
 api = Api(app)
-Markdown(app)
+#Markdown(app)
 
 #status_schema = StatusSchema()
 
