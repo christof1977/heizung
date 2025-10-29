@@ -1131,7 +1131,10 @@ class steuerung(Resource):
                            "State":state}
                     msg = json.dumps(msg)
                     topic = self.name + "/" + self.clients[client]["Name"] + "/" + self.hostname + "/VALVE"
-                    self.mqttclient.publish(topic, msg, retain=True)
+                    try:
+                        self.mqttclient.publish(topic, msg, retain=True)
+                    except AttributeError:
+                        logger.info("MQTT Connection seems not to be there by now.")
         # Wenn die Umwälzpumpe nicht läuft, alles ausschalten:
         else:
             logger.debug("Umwaelzpumpe aus")
@@ -1176,6 +1179,7 @@ class steuerung(Resource):
             GPIO.output(self.pumpe, self.off)
             logger.info("Switching BMC " + str(self.pumpe) + " off")
         GPIO.cleanup()
+        self.mqtt.disconnect()
         return
 
 
