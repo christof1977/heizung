@@ -138,6 +138,8 @@ class steuerung(Resource):
                 except Exception as e:
                     logger.warning("Not a JSON string")
 
+    def on_mqtt_disconnect(self, client, userdata, rc):
+        logger.info("Client {} disconnected for reason {}".format(client, rc))
 
     def udpRx(self):
          self.udpRxTstop = threading.Event()
