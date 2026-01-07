@@ -115,7 +115,8 @@ class mixer():
         while(not self.mix_t_stop.is_set()):
             logger.debug("FF Temp: "+str(self.ff_temp_is))
             diff = self.ff_temp_is - self.ff_temp_target
-            logger.debug("Diff = " + str(diff) + "°C")
+            logger.debug("TempDiff = " + str(diff) + "°C")
+            logger.debug("Target Temp = " + str(self.ff_temp_target) + "°C")
             if(abs(diff) < 5):
                 pause = self.mix_pause_f
                 hold = self.mix_time_f
