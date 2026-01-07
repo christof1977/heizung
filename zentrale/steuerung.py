@@ -108,6 +108,7 @@ class steuerung(Resource):
     def on_mqtt_message(self, client, userdata, msg):
         # Decode the message payload from Bytes to String.
         payload = msg.payload.decode('UTF-8')
+        logger.debug("Received MQTT message: " + str(msg.topic) + " " +  str(payload))
         # Iterate self.sensorik and see, if the received topic is in there:
         for sensor in self.sensorik:
             if msg.topic in self.sensorik.get(sensor).values(): # topic is stored in values of self.sensorik[sensor]
@@ -122,19 +123,34 @@ class steuerung(Resource):
                             self.sensorik[sensor]["PreviousValue"] = self.sensorik[sensor]["Value"]
                             self.sensorik[sensor]["Value"] = payload[key]["Temperature"]
                             self.sensorik[sensor]["Time"] = payload["Time"]
+                            logger.debug("Received MQTT message: ", str(self.sensorik[sensor]))
                         except Exception as e:
                             # Do nothing, if "Temperature" is not a key
-                            pass
+                            logger.debug("Received MQTT message: simply done nothing.")
                 except AttributeError:
-                    # This topics contains the state of the heating pump (on/off) and is written to self.umwaelzpumpe.
-                    # If the configuration disables the dependency of the Oekofen heating, the value is set to 1
+                    # This exeption occurs, when key "Temperature" is not found. Ther can be two possible topics by now:
+                    # - oekofen/hk1/L_pump
+                    #    This topics contains the state of the heating pump (on/off) and is written to self.umwaelzpumpe.
+                    #    If the configuration disables the dependency of the Oekofen heating, the value is set to 1
+                    # - oekofen/system/L_ambient
+                    #   This topic contains the ambient temperature
+                    dt = datetime.datetime.now()
+                    dts = "{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
                     if msg.topic == "oekofen/hk1/L_pump":
+                        self.sensorik[sensor]["PreviousValue"] = self.sensorik[sensor]["Value"]
+                        self.sensorik[sensor]["Value"] = payload
+                        self.sensorik[sensor]["Time"] = dts
                         if(self.oekofen == 0):
                             self.umwaelzpumpe = 1
                         elif payload == "1" or payload == 1:
                             self.umwaelzpumpe = 1
                         else:
                             self.umwaelzpumpe = 0
+                    elif msg.topic == "oekofen/system/L_ambient":
+                        self.sensorik[sensor]["PreviousValue"] = self.sensorik[sensor]["Value"]
+                        self.sensorik[sensor]["Value"] = payload
+                        self.sensorik[sensor]["Time"] = dts
+                        self.mix.ff_temp_target = float(payload) # Passing the ambient temperature to the mixer object
                 except Exception as e:
                     logger.warning("Not a JSON string")
 
@@ -186,7 +202,9 @@ class steuerung(Resource):
         while(not self.t_stop.is_set()):
             try:
                 data, addr = self.udpSock.recvfrom( 1024 )# Puffer-Groesse ist 1024 Bytes.
+                logger.info("Received command via udpServer: " + str(data))
                 ret = self.parseCmd(data) # Abfrage der Fernbedienung (UDP-Server), der Rest passiert per Interrupt/Event
+                logger.info("Answer from udpServer: " + str(ret))
                 self.udpSock.sendto(str(ret).encode('utf-8'), addr)
             except Exception as e:
                 try:
@@ -223,7 +241,7 @@ class steuerung(Resource):
         data = data.decode()
         try:
             jcmd = json.loads(data)
-            logger.debug(data)
+            logger.debug("Received udp command: " + data)
         except:
             logger.warning("Das ist mal kein JSON, pff!")
             ret = json.dumps({"answer": "Kaa JSON Dings!"})
@@ -333,7 +351,7 @@ class steuerung(Resource):
 
         """
         try:
-            logger.debug(self.clients[room])
+            #logger.debug(self.clients[room])
             ret = json.dumps({"answer":"getRoomStatus","room":room,"status":self.clients[room]})
         except:
             ret = json.dumps({"answer":"room does not exist"})
@@ -791,6 +809,11 @@ class steuerung(Resource):
         logger.info(data)
         return(json.dumps({"Floor" : self.name, "Counter" : self.zaehler[idx], "Data" : data}))
 
+    def get_subscribed_mqtt_topics(self):
+        '''This function returns the MQTT topics which we are subscribed to.
+        '''
+        return(json.dumps(self.mqtttopics))
+
     def check_reset(self):
         for client in self.clients:
             self.clients[client]["Mode"] = "auto"
@@ -1081,11 +1104,14 @@ class steuerung(Resource):
         Last but not least, is is checked, if the main heating pump is running. If not, all
         heating circuitsare turned off.
         '''
-        logger.debug("Running set_status")
+        debug = False
+        if debug:
+            logger.debug("Running set_status")
         # Schauen, ob die Umwaelzpumpe läuft
         #if(self.get_oekofen_pumpe()):
         if(self.umwaelzpumpe == 1):
-            logger.debug("Umwaelzpumpe an")
+            if debug:
+                logger.debug("Umwaelzpumpe an")
             for client in self.clients:
                 # Hole Wert (on/off) aus Timerfile 
                 self.clients[client]["Timer"] = self.Timer.get_recent_set(client)
@@ -1098,7 +1124,8 @@ class steuerung(Resource):
                     # isTemp > setTemp mit Hysteres -> off
                     elif float(self.clients[client]["setTemp"]) + self.hysterese/2 <= float(self.clients[client]["isTemp"]):
                         self.clients[client]["Status"] = "off"
-                        logger.debug(client + " running in auto mode, setting state to " + self.clients[client]["Status"])
+                        if debug:
+                            logger.debug(client + " running in auto mode, setting state to " + self.clients[client]["Status"])
                     # Wenn Heizkreis mit Rücklauftemperaturabsenkung ausgestattet ist:
                     if("RTLsens" in self.clients[client]):
                         isTemp = self.sensorik[self.clients[client]["RTLsens"]]["Value"]
@@ -1111,14 +1138,17 @@ class steuerung(Resource):
                 # TODO: das hier muss oben rein, damit die Temperaturregelung aktiv bleibt
                 elif(self.clients[client]["Mode"] == "on"):
                     self.clients[client]["Status"] = "on"
-                    logger.debug(client + " running in manual mode, setting state to " + self.clients[client]["Status"])
+                    if debug:
+                        logger.debug(client + " running in manual mode, setting state to " + self.clients[client]["Status"])
                 # Im manuellen Modus, Zustand off:
                 elif(self.clients[client]["Mode"] == "off"):
                     self.clients[client]["Status"] = "off"
-                    logger.debug(client + " running in manual mode, setting state to " + self.clients[client]["Status"])
+                    if debug:
+                        logger.debug(client + " running in manual mode, setting state to " + self.clients[client]["Status"])
                 else:
                     self.clients[client]["Status"] = "off"
-                    logger.debug(client + " running in auto mode, setting state to " + self.clients[client]["Status"])
+                    if debug:
+                        logger.debug(client + " running in auto mode, setting state to " + self.clients[client]["Status"])
                 # Log-Ausgabe und MQTT-Message, wenn sich der Schaltzustand geändert hat
                 if(old != self.clients[client]["Status"]):
                     logger.info("State has changed: turning %s %s", client, self.clients[client]["Status"])
@@ -1137,9 +1167,11 @@ class steuerung(Resource):
                         logger.info("MQTT Connection seems not to be there by now.")
         # Wenn die Umwälzpumpe nicht läuft, alles ausschalten:
         else:
-            logger.debug("Umwaelzpumpe aus")
+            if debug:
+                logger.debug("Umwaelzpumpe aus")
             for client in self.clients:
-                logger.debug("heating pump off, setting "+ client +" state to " + self.clients[client]["Status"])
+                if debug: 
+                    logger.debug("heating pump off, setting "+ client +" state to " + self.clients[client]["Status"])
                 old = self.clients[client]["Status"]
                 self.clients[client]["Status"] = "off"
                 if(old != self.clients[client]["Status"]):
@@ -1157,16 +1189,19 @@ class steuerung(Resource):
         self.hw_state()
 
     def hw_state(self): #OK
-        logger.debug("Running hw_state")
+        debug = False
+        if debug:
+            logger.debug("Running hw_state")
         for client in self.clients:
             if self.clients[client]["Status"] == "on":
                 val = self.on
             else:
                 val = self.off
             for relais in self.clients[client]["Relais"]:
-                logger.debug("Client: %s, Relais: %d: %s", client, relais, val)
                 GPIO.output(relais,val)
-                logger.debug("Ventilausgang %s: %s", relais, val)
+                if debug:
+                    logger.debug("Client: %s, Relais: %d: %s", client, relais, val)
+                    logger.debug("Ventilausgang %s: %s", relais, val)
  
     def stop(self):
         self.t_stop.set()
@@ -1182,7 +1217,6 @@ class steuerung(Resource):
         self.mqtt.disconnect()
         return
 
-
     def run(self):
          self.runstop = threading.Event()
          runT = threading.Thread(target=self._run, name="run_thread")
@@ -1196,13 +1230,9 @@ class steuerung(Resource):
             try:
                 self.read_sensor_values()
                 if self.mixer_sens in self.sensorik:
-                    logger.debug(self.w1.getValue(self.sensorik[self.mixer_sens]["ID"]))
                     self.mix.ff_temp_is = self.w1.getValue(self.sensorik[self.mixer_sens]["ID"])
-                    logger.debug(self.mix.ff_temp_is)
                 time.sleep(5)
             except KeyboardInterrupt: # CTRL+C exit
                 self.stop()
                 break
-    
-
 

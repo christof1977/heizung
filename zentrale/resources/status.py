@@ -87,3 +87,10 @@ class FfIsTemp(Resource):
     def get(self):
         return json.loads(self.steuerung.get_ff_is_temp())
 
+class SubscribedMqttTopics(Resource):
+    def __init__(self, **kwargs):
+        self.steuerung = kwargs['steuerung']
+
+    def get(self):
+        return json.loads(self.steuerung.get_subscribed_mqtt_topics())
+
