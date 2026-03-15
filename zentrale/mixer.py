@@ -54,7 +54,7 @@ class mixer():
         which correspondends to the measured actual otuside temperature
         Heizkurve
         '''
-        ff_temp = -0.175 * is_temp + 35
+        ff_temp = -1.5 * is_temp + 42
         if(ff_temp < self.min_ff_temp):
             ff_temp = self.min_ff_temp
         if(ff_temp > self.max_ff_temp):
