@@ -54,7 +54,7 @@ class mixer():
         which correspondends to the measured actual otuside temperature
         Heizkurve
         '''
-        ff_temp = -0.175 * is_temp + 35
+        ff_temp = -1.5 * is_temp + 42
         if(ff_temp < self.min_ff_temp):
             ff_temp = self.min_ff_temp
         if(ff_temp > self.max_ff_temp):
@@ -115,7 +115,8 @@ class mixer():
         while(not self.mix_t_stop.is_set()):
             logger.debug("FF Temp: "+str(self.ff_temp_is))
             diff = self.ff_temp_is - self.ff_temp_target
-            logger.debug("Diff = " + str(diff) + "°C")
+            logger.debug("TempDiff = " + str(diff) + "°C")
+            logger.debug("Target Temp = " + str(self.ff_temp_target) + "°C")
             if(abs(diff) < 5):
                 pause = self.mix_pause_f
                 hold = self.mix_time_f

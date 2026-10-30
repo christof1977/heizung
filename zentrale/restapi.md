@@ -15,6 +15,11 @@ Returns the overall status
 Returns sensor information and measurements
 ([/status/sensor](../status/sensor))
 
+## /status/mqtt/subscribed
+### method: GET
+Returns the subscribed MQTT topics
+([/status/mqtt/subscribed](../status/mqtt/subscribed))
+
 ## /help
 ### method: GET
 Displays the function documentation and the JSON commands
