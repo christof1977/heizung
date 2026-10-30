@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
 
-import threading
+#import threading
 from flask import Flask
-from flask import request
+#from flask import request
 from flask_restful import Api
-from flask_restful import Resource, abort
-from steuerung import steuerung
+#from flask_restful import Resource, abort
+
+try:
+    from steuerung import steuerung
+    from resources.status import Status, Alive, HelpJsonCommands, HelpApi, FfIsTemp, FfSetTemp, Mixer, Sensor
+    from resources.room import Roomlist, RoomMode, RoomInfo, RoomStatus, RoomTimer, RoomShortTimer, RoomTemp, RoomNormTemp, Timer
+except:
+    from .steuerung import steuerung
+    from .resources.status import Status, Alive, HelpJsonCommands, HelpApi, FfIsTemp, FfSetTemp, Mixer, Sensor
+    from .resources.room import Roomlist, RoomMode, RoomInfo, RoomStatus, RoomTimer, RoomShortTimer, RoomTemp, RoomNormTemp, Timer
 #from flaskext.markdown import Markdown
 #from marshmallow import Schema, fields
 
-from resources.status import Status, Alive, HelpJsonCommands, HelpApi, FfIsTemp, FfSetTemp, Mixer, Sensor
-from resources.room import Roomlist, RoomMode, RoomInfo, RoomStatus, RoomTimer, RoomShortTimer, RoomTemp, RoomNormTemp, Timer
 
 #class StatusSchema(Schema):
 #    room = fields.Str(required=False)
@@ -24,6 +30,8 @@ api = Api(app)
 #status_schema = StatusSchema()
 
 steuerung = steuerung()
+
+
 api.add_resource(Alive, '/', resource_class_kwargs={'steuerung': steuerung})
 api.add_resource(Status, '/status', resource_class_kwargs={'steuerung': steuerung})
 api.add_resource(Sensor, '/status/sensor', resource_class_kwargs={'steuerung': steuerung})
@@ -42,8 +50,9 @@ api.add_resource(Mixer, '/mixer', resource_class_kwargs={'steuerung': steuerung}
 api.add_resource(FfIsTemp, '/mixer/ff/temp', resource_class_kwargs={'steuerung': steuerung})
 api.add_resource(FfSetTemp, '/mixer/ff/settemp', resource_class_kwargs={'steuerung': steuerung})
 
-if __name__ == "__main__":
-    threading.Thread(target=lambda: app.run(host=host_name, port=port, debug=True, use_reloader=False)).start()
-    steuerung.run()
+#if __name__ == "__main__":
+    #threading.Thread(target=lambda: app.run(host=host_name, port=port, debug=False, use_reloader=False)).start()
+    #app.run(host=host_name, port=port, debug=False, use_reloader=False)
+    #steuerung.run()
     
 
