@@ -7,12 +7,19 @@ import time
 import datetime
 import configparser
 import json
-from timer import timer
-from mixer import mixer
+try:
+    from timer import timer
+    from mixer import mixer
+    from libby import tempsensors
+    from libby import remote
+    from libby import mbus
+except:
+    from .timer import timer
+    from .mixer import mixer
+    from .libby import tempsensors
+    from .libby import remote
+    from .libby import mbus
 import syslog
-from libby import tempsensors
-from libby import remote
-from libby import mbus
 import threading
 from threading import Thread
 import logging
@@ -67,15 +74,18 @@ class steuerung(Resource):
 
         #self.mqttclient = mqtt.Client(self.hostname+str(datetime.datetime.now().timestamp()))
         self.mqttclient = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, self.hostname)
+        client = mqtt.Client(client_id=self.hostname,
+                         protocol=mqtt.MQTTv311,
+                         clean_session=True)
+        #self.mqttclient = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, self.hostname)
         self.mqttclient.username_pw_set(self.mqttuser, self.mqttpass)
         self.mqttclient.on_message = self.on_mqtt_message
         self.mqttclient.on_connect = self.on_mqtt_connect
+        self.mqttclient.on_disconnect = self.on_mqtt_disconnect
         logger.info(self.sensorik)
         logger.info("Setting Last Will and Testament")
         self.mqttclient.will_set(self.name + "/" + self.hostname + "/LWT", "Offline", retain=True)
         self.mqttclient.connect(self.mqtthost, 1883, 60)
-        logger.info("Sending LWT Online Message")
-        self.mqttclient.publish(self.name + "/" + self.hostname + "/LWT", "Online", retain=True)
         self.mqttclient.loop_start()
 
         if(self.garagenkontakt != -1):
@@ -96,12 +106,19 @@ class steuerung(Resource):
 
         self.run()
 
+    def on_mqtt_disconnect(self, client, userdata, rc):
+        logger.info("Client {} disconnected for reason {}".format(client, rc))
+        pass
+
+
     # The callback for when the client connects to the broker.
     def on_mqtt_connect(self, client, userdata, flags, rc):
+        logger.info("Sending LWT Online Message")
+        self.mqttclient.publish(self.name + "/" + self.hostname + "/LWT", "Online", retain=True)
         # After establishing a connection, subscribe to the input topic.
         if self.mqtttopics:
             for topic in self.mqtttopics:
-                logger.info("Subscribing to " + self.mqtttopics[topic])
+                #logger.info("Subscribing to " + self.mqtttopics[topic])
                 client.subscribe(self.mqtttopics[topic])
 
     # The callback for when a message is received from the broker.
@@ -1179,7 +1196,7 @@ class steuerung(Resource):
             GPIO.output(self.pumpe, self.off)
             logger.info("Switching BMC " + str(self.pumpe) + " off")
         GPIO.cleanup()
-        self.mqtt.disconnect()
+        self.mqttclient.loop_stop()
         return
 
 
