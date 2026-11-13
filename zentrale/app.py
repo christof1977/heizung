@@ -8,7 +8,7 @@ from flask_restful import Api
 
 try:
     from steuerung import steuerung
-    from resources.status import Status, Alive, HelpJsonCommands, HelpApi, FfIsTemp, FfSetTemp, Mixer, Sensor
+    from resources.status import Status, Alive, HelpJsonCommands, HelpApi, FfIsTemp, FfSetTemp, Mixer, Sensor, SubscribedMqttTopics
     from resources.room import Roomlist, RoomMode, RoomInfo, RoomStatus, RoomTimer, RoomShortTimer, RoomTemp, RoomNormTemp, Timer
 except:
     from .steuerung import steuerung
