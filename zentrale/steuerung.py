@@ -33,7 +33,6 @@ from flask import request
 from flask_restful import Api
 from flask_restful import Resource, abort
 
-udp_port = 5005
 server = "dose"
 datacenterport = 6663
 logger = logging.getLogger('Heizung')
@@ -192,29 +191,6 @@ class steuerung(Resource):
     def on_mqtt_disconnect(self, client, userdata, rc):
         logger.info("Client {} disconnected for reason {}".format(client, rc))
 
-    def get_oekofen_pumpe(self):
-        """ Get status from Oekofen heating pump
-        Retries, if no response
-
-        """
-        if(self.oekofen == 0):
-            # Do not get state of heating system, just return true to simulate a running heating pump
-            logger.debug("Not taking Oekofen state into account")
-            ret = True
-        else:
-            ret = -1
-            while(ret == -1):
-                try:
-                    json_string = '{"command" : "getUmwaelzpumpe"}'
-                    ret = remote.udpRemote(json_string, addr=server, port=datacenterport)["answer"]
-                except:
-                    ret = -1
-                    time.sleep(1)
-            if(ret in ["true", "True", "TRUE"]):
-                ret = True
-            else:
-                ret = False
-        return(ret)
 
     def parseCmd(self, data):
         data = data.decode()
@@ -1086,8 +1062,6 @@ class steuerung(Resource):
         debug = False
         if debug:
             logger.debug("Running set_status")
-        # Schauen, ob die Umwaelzpumpe läuft
-        #if(self.get_oekofen_pumpe()):
         if(self.umwaelzpumpe == 1):
             if debug:
                 logger.debug("Umwaelzpumpe an")
