@@ -33,8 +33,6 @@ from flask import request
 from flask_restful import Api
 from flask_restful import Resource, abort
 
-server = "dose"
-datacenterport = 6663
 logger = logging.getLogger('Heizung')
 #logger.setLevel(logging.DEBUG)
 logger.setLevel(logging.INFO)
@@ -190,65 +188,6 @@ class steuerung(Resource):
 
     def on_mqtt_disconnect(self, client, userdata, rc):
         logger.info("Client {} disconnected for reason {}".format(client, rc))
-
-
-    def parseCmd(self, data):
-        data = data.decode()
-        try:
-            jcmd = json.loads(data)
-            logger.debug("Received udp command: " + data)
-        except:
-            logger.warning("Das ist mal kein JSON, pff!")
-            ret = json.dumps({"answer": "Kaa JSON Dings!"})
-            return(ret)
-        if(jcmd['command'] == "getStatus"):
-            ret = self.get_status()
-        elif(jcmd['command'] == "getAlive"):
-            ret = self.get_alive()
-        elif(jcmd['command'] == "getRooms"):
-            ret = self.get_rooms()
-        elif(jcmd['command'] == "getRoomTimer"):
-            ret = self.get_room_timer(jcmd['Room'])
-        elif(jcmd['command'] == "setRoomTimer"):
-            ret = self.set_room_timer(jcmd['Room'])
-        elif(jcmd['command'] == "reloadTimer"):
-            ret = self.reload_timer()
-        elif(jcmd['command'] == "getTimer"):
-            ret = self.get_timer()
-        elif(jcmd['command'] == "getRoomStatus"):
-            ret = self.get_room_status(jcmd['Room'])
-        elif(jcmd['command'] == "setRoomStatus"):
-            ret = self.set_room_status(jcmd['Room'])
-        elif(jcmd['command'] == "getRoomMode"):
-            ret = self.get_room_mode(jcmd['Room'])
-        elif(jcmd['command'] == "setRoomMode"):
-            ret = self.set_room_mode(jcmd['Room'],jcmd['Mode'])
-        elif(jcmd['command'] == "toggleRoomMode"):
-            ret = self.toggle_room_mode(jcmd['Room'])
-        elif(jcmd['command'] == "getRoomShortTimer"):
-            ret = self.get_room_shorttimer(jcmd['Room'])
-        elif(jcmd['command'] == "setRoomShortTimer"):
-            ret = self.set_room_shorttimer(jcmd['Room'],jcmd['Time'],jcmd['Mode'])
-        elif(jcmd['command'] == "resetRoomShortTimer"):
-            ret = self.reset_room_shorttimer(jcmd['Room'])
-        elif(jcmd['command'] == "getRoomTemp"):
-            ret = self.get_room_temp(jcmd['Room'])
-        elif(jcmd['command'] == "getRoomSetTemp"):
-            ret = self.get_room_set_temp(jcmd['Room'])
-        elif(jcmd['command'] == "setRoomSetTemp"):
-            ret = self.set_room_set_temp(jcmd['Room'],jcmd['setTemp'])
-        elif(jcmd['command'] == "getCounterValues"):
-            ret = self.get_counter_values(jcmd['Counter'])
-        elif(jcmd['command'] == "getCounter"):
-            ret = self.get_counter()
-        elif(jcmd['command'] == "setTor"):
-            ret = self.garage.set_tor(jcmd['Request'])
-        elif(jcmd['command'] == "getTor"):
-            ret = self.garage.get_tor()
-        else:
-             ret = json.dumps({"answer":"Fehler","Wert":"Kein gültiges Kommando"})
-        return(ret)
-
 
     def get_rooms(self):
         """ Return available rooms
