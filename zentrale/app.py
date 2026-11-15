@@ -8,11 +8,11 @@ from flask_restful import Api
 
 try:
     from steuerung import steuerung
-    from resources.status import Status, Alive, HelpJsonCommands, HelpApi, FfIsTemp, FfSetTemp, Mixer, Sensor, SubscribedMqttTopics
+    from resources.status import Status, Alive, HelpJsonCommands, HelpApi, FfIsTemp, FfSetTemp, Mixer, Sensor, SubscribedMqttTopics, Counter, Counterlist
     from resources.room import Roomlist, RoomMode, RoomInfo, RoomStatus, RoomTimer, RoomShortTimer, RoomTemp, RoomNormTemp, Timer
 except:
     from .steuerung import steuerung
-    from .resources.status import Status, Alive, HelpJsonCommands, HelpApi, FfIsTemp, FfSetTemp, Mixer, Sensor
+    from .resources.status import Status, Alive, HelpJsonCommands, HelpApi, FfIsTemp, FfSetTemp, Mixer, Sensor, SubscribedMqttTopics, Counter, Counterlist
     from .resources.room import Roomlist, RoomMode, RoomInfo, RoomStatus, RoomTimer, RoomShortTimer, RoomTemp, RoomNormTemp, Timer
 #from flaskext.markdown import Markdown
 #from marshmallow import Schema, fields
@@ -49,6 +49,8 @@ api.add_resource(Timer, '/timer', resource_class_kwargs={'steuerung': steuerung}
 api.add_resource(Mixer, '/mixer', resource_class_kwargs={'steuerung': steuerung})
 api.add_resource(FfIsTemp, '/mixer/ff/temp', resource_class_kwargs={'steuerung': steuerung})
 api.add_resource(FfSetTemp, '/mixer/ff/settemp', resource_class_kwargs={'steuerung': steuerung})
+api.add_resource(Counterlist, '/counter', resource_class_kwargs={'steuerung': steuerung})
+api.add_resource(Counter, '/counter/<string:counter>', resource_class_kwargs={'steuerung': steuerung})
 
 #if __name__ == "__main__":
     #threading.Thread(target=lambda: app.run(host=host_name, port=port, debug=False, use_reloader=False)).start()

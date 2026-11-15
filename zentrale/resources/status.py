@@ -94,3 +94,20 @@ class SubscribedMqttTopics(Resource):
     def get(self):
         return json.loads(self.steuerung.get_subscribed_mqtt_topics())
 
+class Counterlist(Resource):
+    def __init__(self, **kwargs):
+        self.steuerung = kwargs['steuerung']
+
+    def get(self):
+        return json.loads(self.steuerung.get_counter())
+
+class Counter(Resource):
+    def __init__(self, **kwargs):
+        self.steuerung = kwargs['steuerung']
+        self.counterlist = json.loads(self.steuerung.get_counter())["Counter"]
+
+    def get(self, counter):
+        if counter and counter in self.counterlist:
+            return json.loads(self.steuerung.get_counter_values(counter))
+        else:
+            return {"answer": "getCounterValues", "error": "No such counter"}
