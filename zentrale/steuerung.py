@@ -66,13 +66,7 @@ class steuerung(Resource):
                     self.mqtttopics[sensor] = self.sensorik[sensor]["ID"]
             except:
                 logger.warning("Config error, key 'System' missing.")
-
-        #self.mqttclient = mqtt.Client(self.hostname+str(datetime.datetime.now().timestamp()))
         self.mqttclient = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, self.hostname)
-        client = mqtt.Client(client_id=self.hostname,
-                         protocol=mqtt.MQTTv311,
-                         clean_session=True)
-        #self.mqttclient = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, self.hostname)
         self.mqttclient.username_pw_set(self.mqttuser, self.mqttpass)
         self.mqttclient.on_message = self.on_mqtt_message
         self.mqttclient.on_connect = self.on_mqtt_connect
@@ -102,7 +96,7 @@ class steuerung(Resource):
         self.run()
 
     def on_mqtt_disconnect(self, client, userdata, rc):
-        logger.info("Client {} disconnected for reason {}".format(client, rc))
+        logger.info("Client {} disconnected for reason {}".format(self.client, rc))
         pass
 
 
