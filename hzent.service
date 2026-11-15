@@ -9,7 +9,7 @@ Group=heizung
 UMask=007
 WorkingDirectory=/home/heizung/heizung/zentrale
 Environment="PATH=/home/heizung/heizung/zentrale/env/bin/"
-ExecStart=/home/heizung/heizung/zentrale/env/bin/gunicorn --timeout 60 --bind 0.0.0.0:5000 main:app
+ExecStart=/home/heizung/heizung/zentrale/env/bin/gunicorn --worker-class gthread --workers 1 --threads 4 --timeout 60 --keep-alive 2 --bind 0.0.0.0:5000 main:app
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 TimeoutStopSec=10
