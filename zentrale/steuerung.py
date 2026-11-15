@@ -40,6 +40,7 @@ logger = logging.getLogger('Heizung')
 #logger.setLevel(logging.DEBUG)
 logger.setLevel(logging.INFO)
 
+
 class steuerung(Resource):
     def __init__(self):
         self.t_stop = threading.Event()
@@ -58,9 +59,6 @@ class steuerung(Resource):
         self.set_pumpe()
         self.short_timer()
         self.timer_operation()
-
-        self.udpServer()
-        self.udpRx()
 
         # MQTT Topics to subscribe to (receiving vales)
         self.mqtttopics = {}
@@ -125,8 +123,57 @@ class steuerung(Resource):
     def on_mqtt_message(self, client, userdata, msg):
         # Decode the message payload from Bytes to String.
         payload = msg.payload.decode('UTF-8')
-        logger.debug("Received MQTT message: " + str(msg.topic) + " " +  str(payload))
         # Iterate self.sensorik and see, if the received topic is in there:
+        sensor = next((k for k, v in self.mqtttopics.items() if v == msg.topic), None)
+        try:
+            # The try will be successful, when the MQTT message comes from zigbee2Mqtt.
+            payload = json.loads(payload) # See, if the MQTT payload is a json string, then iterate through keys and find key ["Temperature"]
+            for key in payload.keys():
+                self.clients[sensor]["isTemp"] = payload["temperature"]
+                self.sensorik[sensor]["PreviousValue"] = self.sensorik[sensor]["Value"]
+                self.sensorik[sensor]["Value"] = payload["temperature"]
+                self.sensorik[sensor]["Time"] = time.time()
+        except KeyError:
+            # This exception occurs, when a Tasmota MQTT message is recived. The temperature is digged in a nested dict
+            for key in payload.keys():
+                try:
+                    self.clients[sensor]["isTemp"] = payload[key]["Temperature"]
+                    self.sensorik[sensor]["PreviousValue"] = self.sensorik[sensor]["Value"]
+                    self.sensorik[sensor]["Value"] = payload[key]["Temperature"]
+                    self.sensorik[sensor]["Time"] = payload["Time"]
+                except Exception as e:
+                    # Do nothing, if "Temperature" is not a key
+                    logger.debug("Received MQTT message: simply done nothing.")
+        except AttributeError:
+            # This exeption occurs, when key "Temperature" is not found. Ther can be two possible topics by now:
+            # - oekofen/hk1/L_pump
+            #    This topics contains the state of the heating pump (on/off) and is written to self.umwaelzpumpe.
+            #    If the configuration disables the dependency of the Oekofen heating, the value is set to 1
+            # - oekofen/system/L_ambient
+            #   This topic contains the ambient temperature
+            dt = datetime.datetime.now()
+            dts = "{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
+            if msg.topic == "oekofen/hk1/L_pump":
+                self.sensorik[sensor]["PreviousValue"] = self.sensorik[sensor]["Value"]
+                self.sensorik[sensor]["Value"] = payload
+                self.sensorik[sensor]["Time"] = dts
+                if(self.oekofen == 0):
+                    self.umwaelzpumpe = 1
+                elif payload == "1" or payload == 1:
+                    self.umwaelzpumpe = 1
+                else:
+                    self.umwaelzpumpe = 0
+            elif msg.topic == "oekofen/system/L_ambient":
+                self.sensorik[sensor]["PreviousValue"] = self.sensorik[sensor]["Value"]
+                self.sensorik[sensor]["Value"] = payload
+                self.sensorik[sensor]["Time"] = dts
+                self.mix.ff_temp_target = float(payload) # Passing the ambient temperature to the mixer object
+        except Exception as e:
+            logger.debug(type(e).__name__)
+            logger.debug(e)
+            logger.debug(payload)
+        return
+
         for sensor in self.sensorik:
             if msg.topic in self.sensorik.get(sensor).values(): # topic is stored in values of self.sensorik[sensor]
                 try:
@@ -135,100 +182,15 @@ class steuerung(Resource):
                     # in the except block, nothing is done.
                     # As soon as the key "Temperature" is found, the previous value is stored and the new value and time stamp are written to the storage
                     for key in payload.keys():
-                        try:
-                            self.clients[sensor]["isTemp"] = payload[key]["Temperature"]
-                            self.sensorik[sensor]["PreviousValue"] = self.sensorik[sensor]["Value"]
-                            self.sensorik[sensor]["Value"] = payload[key]["Temperature"]
-                            self.sensorik[sensor]["Time"] = payload["Time"]
-                            logger.debug("Received MQTT message: ", str(self.sensorik[sensor]))
-                        except Exception as e:
-                            # Do nothing, if "Temperature" is not a key
-                            logger.debug("Received MQTT message: simply done nothing.")
-                except AttributeError:
-                    # This exeption occurs, when key "Temperature" is not found. Ther can be two possible topics by now:
-                    # - oekofen/hk1/L_pump
-                    #    This topics contains the state of the heating pump (on/off) and is written to self.umwaelzpumpe.
-                    #    If the configuration disables the dependency of the Oekofen heating, the value is set to 1
-                    # - oekofen/system/L_ambient
-                    #   This topic contains the ambient temperature
-                    dt = datetime.datetime.now()
-                    dts = "{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
-                    if msg.topic == "oekofen/hk1/L_pump":
-                        self.sensorik[sensor]["PreviousValue"] = self.sensorik[sensor]["Value"]
-                        self.sensorik[sensor]["Value"] = payload
-                        self.sensorik[sensor]["Time"] = dts
-                        if(self.oekofen == 0):
-                            self.umwaelzpumpe = 1
-                        elif payload == "1" or payload == 1:
-                            self.umwaelzpumpe = 1
-                        else:
-                            self.umwaelzpumpe = 0
-                    elif msg.topic == "oekofen/system/L_ambient":
-                        self.sensorik[sensor]["PreviousValue"] = self.sensorik[sensor]["Value"]
-                        self.sensorik[sensor]["Value"] = payload
-                        self.sensorik[sensor]["Time"] = dts
-                        self.mix.ff_temp_target = float(payload) # Passing the ambient temperature to the mixer object
+                        logger.debug(key)
                 except Exception as e:
+                    logger.debug("Warum hier?")
+                    logger.debug(payload)
+                    logger.debug(type(e).__name__)
                     logger.warning("Not a JSON string")
 
     def on_mqtt_disconnect(self, client, userdata, rc):
         logger.info("Client {} disconnected for reason {}".format(client, rc))
-
-    def udpRx(self):
-         self.udpRxTstop = threading.Event()
-         rxValT = threading.Thread(target=self._udpRx)
-         rxValT.setDaemon(True)
-         rxValT.start()
-
-    def _udpRx(self):
-         prctl.set_name("udpRx")
-         port =  6664
-         logger.info("Starting UDP client on port " + str(port))
-         udpclient = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)  # UDP
-         udpclient.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-         udpclient.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-         udpclient.bind(("", port))
-         udpclient.setblocking(0)
-         while(not self.udpRxTstop.is_set()):
-             ready = select.select([udpclient], [], [], .1)
-             if ready[0]:
-                 data, addr = udpclient.recvfrom(8192)
-                 try:
-                     message = json.loads(data.decode())
-                     if("measurement" in message.keys()):
-                         meas = message["measurement"]
-                         if("tempOekoAussen" in meas.keys()):
-                             try:
-                                 self.mix.ff_temp_target = float(meas["tempOekoAussen"]["Value"])
-                             except:
-                                 logger.debug("tempOekoAussen not valid or so")
-                 except Exception as e:
-                     logger.warning(str(e))
-
-    def udpServer(self):
-        logger.info("Starting UDP-Server on port " + str(udp_port))
-        self.udpSock = socket.socket( socket.AF_INET,  socket.SOCK_DGRAM )
-        self.udpSock.bind( (self.basehost,udp_port) )
-
-        udpT = threading.Thread(target=self._udpServer)
-        udpT.setDaemon(True)
-        udpT.start()
-
-    def _udpServer(self):
-        prctl.set_name("udpServer")
-        while(not self.t_stop.is_set()):
-            try:
-                data, addr = self.udpSock.recvfrom( 1024 )# Puffer-Groesse ist 1024 Bytes.
-                logger.info("Received command via udpServer: " + str(data))
-                ret = self.parseCmd(data) # Abfrage der Fernbedienung (UDP-Server), der Rest passiert per Interrupt/Event
-                logger.info("Answer from udpServer: " + str(ret))
-                self.udpSock.sendto(str(ret).encode('utf-8'), addr)
-            except Exception as e:
-                try:
-                    self.udpSock.sendto(str('{"answer":"error"}').encode('utf-8'), addr)
-                    logger.warning("Uiui, beim UDP senden/empfangen hat's kracht!" + str(e))
-                except Exception as o:
-                    logger.warning("Uiui, beim UDP senden/empfangen hat's richtig kracht!" + str(o))
 
     def get_oekofen_pumpe(self):
         """ Get status from Oekofen heating pump
